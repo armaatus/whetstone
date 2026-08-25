@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Whetstone.Web.Client\Whetstone.Web.Client.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Whetstone.Application\Whetstone.Application.csproj" />
+    <ProjectReference Include="..\Whetstone.Infrastructure\Whetstone.Infrastructure.csproj" />
+    <ProjectReference Include="..\Whetstone.ServiceDefaults\Whetstone.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

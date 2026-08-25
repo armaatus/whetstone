@@ -1,0 +1,18 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.5.2">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <UserSecretsId>368ebc24-3b1f-4105-ba33-126a630a212e</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Whetstone.Web\Whetstone.Web.csproj" />
+    <ProjectReference Include="..\Whetstone.Worker\Whetstone.Worker.csproj" />
+  </ItemGroup>
+
+</Project>
