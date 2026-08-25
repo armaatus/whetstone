@@ -25,17 +25,18 @@ name: Board sync
 # Until the secret exists this job logs a warning and exits 0 rather than failing.
 # --------------------------------------------------------------------------------
 
+# Deliberately NOT triggered per issue event.
+#
+# A workflow run is spawned per triggering event, not per unit of work, so batching the script's
+# steps into one job cannot reduce the count — the only lever is how often it is triggered. On the
+# `issues:` trigger, editing twenty tickets in one sitting queued twenty runs, of which the
+# concurrency group then cancelled most: the board ended up correct, and the run history was noise
+# that made a genuine failure hard to spot.
+#
+# Hourly instead. The board is a planning aid, not a source of truth — an hour stale costs nothing,
+# and `workflow_dispatch` covers "I need it right now". Every run is idempotent and a no-op run
+# writes nothing, so the cost of a wasted tick is one API read.
 on:
-  issues:
-    types:
-      - opened
-      - closed
-      - reopened
-      - edited # a "Blocked by" line may have changed
-      - labeled
-      - unlabeled
-      - milestoned
-      - demilestoned
   workflow_dispatch:
     inputs:
       dry_run:
@@ -43,7 +44,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: "17 6 * * *" # daily backstop, in case an event was missed
+    - cron: "7 * * * *" # hourly, offset off the hour to avoid the scheduler's busiest minute
 
 # One run at a time: the Projects API rejects concurrent writes to the same project.
 # Do not cancel in progress — a half-applied sync leaves the board inconsistent until
