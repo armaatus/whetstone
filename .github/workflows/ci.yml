@@ -44,8 +44,21 @@ jobs:
           global-json-file: global.json
 
       # 1. Tool manifest — dotnet-ef and aspire.cli, pinned with rollForward: false.
+      #
+      #    The retry is not superstition. On a COLD package cache, `dotnet tool restore` fails if
+      #    aspire.cli is restored before dotnet-ef: the SDK validates dotnet-ef's commands against
+      #    aspire's DotnetToolSettings.xml and reports
+      #      'The command "dotnet-ef" ... is not contained in the package with Package Id dotnet-ef.
+      #       The commands contained in the package are aspire.'
+      #    Reproduced deterministically on linux/amd64 with SDK 10.0.400; does not reproduce on macOS,
+      #    which is why it never showed up locally — a developer's cache is never cold.
+      #
+      #    .config/dotnet-tools.json now lists dotnet-ef first, which avoids it. The retry is here
+      #    because that ordering is load-bearing and nothing enforces it: `dotnet tool install` may
+      #    rewrite the manifest and put it back. Once the first pass has populated the cache the
+      #    second always succeeds.
       - name: Restore tools
-        run: dotnet tool restore
+        run: dotnet tool restore || dotnet tool restore
 
       # 2. Locked-mode restore. Fails if any packages.lock.json is stale, which is the whole point:
       #    an unlocked restore can silently resolve a different graph than the one reviewed.
