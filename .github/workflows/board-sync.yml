@@ -1,0 +1,81 @@
+name: Board sync
+
+# Keeps the "Whetstone — build order" project board (github.com/users/armaatus/projects/1)
+# in step with the issues.
+#
+# Each run does two things:
+#   1. Reconciles every issue's "**Blocked by:** #n" line into GitHub's native issue
+#      dependencies. Additive only — it never removes an edge.
+#   2. Recomputes Status / Blockers / Unlocks / Critical path from the resulting graph.
+#
+# Status is only moved between Blocked, Ready and Done. "In progress" and "In review"
+# are yours and are never overwritten.
+#
+# --------------------------------------------------------------------------------
+# Setup: add a repository secret named BOARD_SYNC_TOKEN.
+#
+# The built-in GITHUB_TOKEN cannot write user-owned Projects v2, so this needs a PAT:
+#
+#   Fine-grained  — resource owner: armaatus
+#                   Account permissions:    Projects        read and write
+#                   Repository permissions: Issues          read and write
+#                                           Contents        read-only
+#   Classic       — scopes: project, repo
+#
+# Until the secret exists this job logs a warning and exits 0 rather than failing.
+# --------------------------------------------------------------------------------
+
+on:
+  issues:
+    types:
+      - opened
+      - closed
+      - reopened
+      - edited # a "Blocked by" line may have changed
+      - labeled
+      - unlabeled
+      - milestoned
+      - demilestoned
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report what would change without writing anything"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "17 6 * * *" # daily backstop, in case an event was missed
+
+# One run at a time: the Projects API rejects concurrent writes to the same project.
+# Do not cancel in progress — a half-applied sync leaves the board inconsistent until
+# the next run.
+concurrency:
+  group: board-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync the board
+        env:
+          GH_TOKEN: ${{ secrets.BOARD_SYNC_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning title=Board sync skipped::BOARD_SYNC_TOKEN is not set. See the header of .github/workflows/board-sync.yml."
+            exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            python3 scripts/sync-board.py --dry-run
+          else
+            python3 scripts/sync-board.py
+          fi
