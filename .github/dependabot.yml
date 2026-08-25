@@ -1,0 +1,23 @@
+# Spec 7.8 (supply chain). Grouped into one PR per ecosystem per week: a stream of single-package
+# PRs is a stream nobody reviews, and an unreviewed dependency bump is the thing this is meant to
+# prevent rather than automate.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      nuget:
+        patterns: ["*"]
+
+  # CI pins actions by commit SHA, so this is what keeps those pins current. Without it, pinning
+  # by SHA quietly becomes pinning to something old and unpatched.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]

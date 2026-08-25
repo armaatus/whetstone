@@ -1,0 +1,144 @@
+name: CI
+
+# Every gate from spec 13.6, on every push and every pull request, from the first commit.
+#
+# Why now rather than "once there's something to test": the cost of each gate is proportional to how
+# much code exists when you add it. At commit 5 they all pass trivially and keep passing because you
+# fix violations one at a time as you create them. At commit 500 each one produces a wall of
+# failures and the rational move is to switch it off.
+#
+# Third-party actions are pinned by commit SHA, not by tag. A tag is mutable, so `@v4` is a promise
+# from someone else about code you have not read — the same supply-chain argument as `<clear />` in
+# NuGet.config.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes the previous run on the same ref. Safe to cancel: unlike the board sync,
+# a half-finished CI run writes nothing.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  SOLUTION: Whetstone.slnx
+
+jobs:
+  # Gates 1-6: restore, format, build, test, vulnerable packages.
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest # Testcontainers needs Docker. macOS runners do not have it.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          global-json-file: global.json
+
+      # 1. Tool manifest — dotnet-ef and aspire.cli, pinned with rollForward: false.
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # 2. Locked-mode restore. Fails if any packages.lock.json is stale, which is the whole point:
+      #    an unlocked restore can silently resolve a different graph than the one reviewed.
+      - name: Restore (locked)
+        run: dotnet restore "$SOLUTION" --locked-mode
+
+      # 3. Formatting. Runs before the build so a formatting failure is not buried under compiler
+      #    output, and --no-restore because step 2 already did it.
+      - name: Verify formatting
+        run: dotnet format "$SOLUTION" --verify-no-changes --no-restore
+
+      # 4. Warnings are errors (Directory.Build.props: TreatWarningsAsErrors, AnalysisLevel latest-all).
+      - name: Build
+        run: dotnet build "$SOLUTION" -c Release --no-restore
+
+      - name: Test
+        run: dotnet test "$SOLUTION" -c Release --no-build --verbosity normal
+
+      # 6. Defence in depth, and in practice the second line rather than the first.
+      #
+      #    Verified by planting System.Net.Http 4.3.0 (GHSA-7jgj-8wvc-jh57): the *restore* fails
+      #    first, because Directory.Build.props sets NuGetAudit/NuGetAuditMode=all and
+      #    TreatWarningsAsErrors promotes NU1903 to an error. So a vulnerable package never reaches
+      #    this step. Keep the step anyway — it is the check that still works if auditing is ever
+      #    turned off or narrowed, and it names the problem in one line instead of in NuGet's output.
+      #
+      #    `dotnet list package --vulnerable` exits 0 even when it finds something, so the exit code
+      #    is not a gate. Grep the output and fail explicitly.
+      #
+      #    Transitive is included because transitive is where the vulnerabilities actually are. When
+      #    one needs an explicit pin to resolve, CentralPackageTransitivePinningEnabled is already on
+      #    for exactly that — that is the system working, not a workaround.
+      - name: Vulnerable packages
+        run: |
+          set -euo pipefail
+          dotnet list "$SOLUTION" package --vulnerable --include-transitive 2>&1 | tee vulnerable.txt
+          if grep -qi 'has the following vulnerable packages' vulnerable.txt; then
+            echo "::error title=Vulnerable packages::dotnet list package --vulnerable reported at least one advisory. See the log above."
+            exit 1
+          fi
+          echo "No vulnerable packages reported."
+
+  # Gate 7. Separate job so a secret leak is reported even when the build is broken — the two
+  # failures are unrelated and you want to know about both in one run.
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0 # gitleaks scans history, not just the tip
+
+      # Pinned version, installed from the release archive rather than a third-party action: one
+      # fewer action to trust, and the same binary the pre-commit hook runs locally.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          set -euo pipefail
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      # CI re-runs what hooks/pre-commit runs locally, so --no-verify buys nothing.
+      - name: Scan history
+        run: gitleaks git --redact --no-banner .
+
+  # Gate 8. Placeholder until Epic 4 (#68 / 4.12).
+  evals:
+    name: Eval harness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Not wired yet
+        run: |
+          echo "Eval harness gate — placeholder."
+          echo "Wired from Epic 4 onward: #68 (4.12). Spec 9.4 defines the gates."
+          echo "The job exists now on purpose: a gate added later is a gate that gets argued about."
+
+  # Gate 9. Placeholder until Epic 2.5.
+  #
+  # ADR-0007 section 1: a Lens is registered as id@version with a content hash recorded at
+  # registration, and resolution is by hash. A mismatch must fail loudly — never fall back to the
+  # newest version, never warn and continue. An upstream skill file that changed under a pinned
+  # version is third-party instruction drift against private source code, which is the thing
+  # ADR-0007 exists to stop.
+  lens-pinning:
+    name: Lens content-hash pinning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Not wired yet
+        run: |
+          echo "Lens content-hash pinning gate — placeholder."
+          echo "Wired from Epic 2.5 onward: #111 (L2 - Lens registration and pinning)."
+          echo "Re-hashes every registered Lens against its pinned hash; any mismatch fails the build."
