@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <UserSecretsId>dotnet-Whetstone.Worker-e5f43191-5881-4876-adaa-205660f1d90d</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Whetstone.Application\Whetstone.Application.csproj" />
+    <ProjectReference Include="..\Whetstone.Infrastructure\Whetstone.Infrastructure.csproj" />
+    <ProjectReference Include="..\Whetstone.ServiceDefaults\Whetstone.ServiceDefaults.csproj" />
+  </ItemGroup>
+</Project>

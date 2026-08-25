@@ -1,0 +1,15 @@
+-- Whetstone local database roles — spec 7.3 / 13.4
+--
+-- INTENTIONALLY EMPTY. Per the working agreement (spec 17), the tenancy and RLS
+-- layer is written by hand, not by an agent. Ticket 0.6 is yours.
+--
+-- Until this file creates the three roles, the AppHost connects as the container
+-- superuser, which BYPASSES every RLS policy. Isolation bugs will be invisible
+-- locally and will surface only in production. Spec 13.4 calls this non-negotiable.
+--
+-- Required (see spec 7.3):
+--   whetstone_migrator  owns the schema, holds DDL rights
+--   whetstone_app       DML only, NOT the table owner, no BYPASSRLS  <- app connects as this
+--   whetstone_readonly  ad-hoc querying
+--
+-- Acceptance (ticket 0.6): connected as whetstone_app, CREATE TABLE must fail.

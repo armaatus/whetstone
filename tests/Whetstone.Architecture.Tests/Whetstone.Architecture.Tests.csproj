@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Whetstone.Domain\Whetstone.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Whetstone.Application\Whetstone.Application.csproj" />
+    <ProjectReference Include="..\..\src\Whetstone.Infrastructure\Whetstone.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Whetstone.Web\Whetstone.Web.csproj" />
+    <ProjectReference Include="..\..\src\Whetstone.Worker\Whetstone.Worker.csproj" />
+  </ItemGroup>
+
+</Project>

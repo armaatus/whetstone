@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Whetstone.AppHost/Whetstone.AppHost.csproj" />
+    <Project Path="src/Whetstone.Application/Whetstone.Application.csproj" />
+    <Project Path="src/Whetstone.Domain/Whetstone.Domain.csproj" />
+    <Project Path="src/Whetstone.Infrastructure/Whetstone.Infrastructure.csproj" />
+    <Project Path="src/Whetstone.ServiceDefaults/Whetstone.ServiceDefaults.csproj" />
+    <Project Path="src/Whetstone.Web.Client/Whetstone.Web.Client.csproj" />
+    <Project Path="src/Whetstone.Web/Whetstone.Web.csproj" />
+    <Project Path="src/Whetstone.Worker/Whetstone.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Whetstone.Ai.Evals/Whetstone.Ai.Evals.csproj" />
+    <Project Path="tests/Whetstone.Application.Tests/Whetstone.Application.Tests.csproj" />
+    <Project Path="tests/Whetstone.Architecture.Tests/Whetstone.Architecture.Tests.csproj" />
+    <Project Path="tests/Whetstone.Domain.Tests/Whetstone.Domain.Tests.csproj" />
+    <Project Path="tests/Whetstone.Integration.Tests/Whetstone.Integration.Tests.csproj" />
+    <Project Path="tests/Whetstone.Web.Tests/Whetstone.Web.Tests.csproj" />
+  </Folder>
+</Solution>
