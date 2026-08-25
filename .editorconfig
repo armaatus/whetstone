@@ -29,7 +29,9 @@ indent_size = 4
 tab_width = 4
 
 # New line preferences
-insert_final_newline = false
+# true, not the template's default of false: every .cs file in the repo already ends with a newline,
+# and a missing one gives git "\ No newline at end of file" on the last line of every future diff.
+insert_final_newline = true
 
 #### .NET Coding Conventions ####
 [*.{cs,vb}]

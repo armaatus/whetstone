@@ -20,6 +20,16 @@
     <!-- Supply-chain control: CI restores in locked mode. -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
 
+    <!-- Vulnerability audit at restore time. Combined with TreatWarningsAsErrors above, NU1902/NU1903
+         become errors, so a vulnerable package fails the restore before anything is compiled.
+         Set explicitly rather than inherited: the SDK's default audit mode has changed between
+         versions, and "transitive is where the vulnerabilities actually are" (spec 13.6) is only
+         true of the build if `all` is the mode in effect. Level `low` because spec 13.6 says fail
+         on any hit, not on a severity you talked yourself into. -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
