@@ -1,7 +1,7 @@
 # Spike — RLS and derived objects
 
 **Date:** 2026-08-25
-**Question:** ADR-0003 D-4 — do derived database objects carry tenant isolation, and does a keyless
+**Question:** ADR-0003 §4 — do derived database objects carry tenant isolation, and does a keyless
 entity type carry an EF Core global query filter?
 **Verdict:** Layer 1 is available on derived objects. **Layer 2 is not, for materialised views —
 and its absence is worse than a gap: it inverts.**
