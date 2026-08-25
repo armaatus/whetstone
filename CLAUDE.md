@@ -27,14 +27,15 @@ Issues live as GitHub issues, managed with the `gh` CLI. See `docs/agents/issue-
 
 ### Ticket authoring
 
-Tickets give the shape of the thing, not the thing. Two modes, keyed to the working agreement above.
-See `docs/agents/ticket-authoring.md`. Read it before writing or editing any issue.
+Tickets give the shape of the thing, not the thing. Two modes, keyed to the working agreement above
+— judged from the work itself, not recorded as a label. See `docs/agents/ticket-authoring.md`. Read
+it before writing or editing any issue.
 
 ### Triage labels
 
-The five canonical roles, used verbatim as label strings. See `docs/agents/triage-labels.md`.
-`ready-for-human` and `ready-for-agent` additionally carry the working-agreement meaning defined in
-`docs/agents/ticket-authoring.md`.
+The canonical triage roles, used verbatim as label strings. See `docs/agents/triage-labels.md`.
+There is no label for who implements a ticket: everything here is built by hand, so the
+working-agreement distinction lives in `docs/agents/ticket-authoring.md`, not in the tracker.
 
 ### Domain docs
 

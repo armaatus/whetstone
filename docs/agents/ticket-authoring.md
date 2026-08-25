@@ -18,9 +18,11 @@ tracker practises what it ships.
 
 ## Two modes
 
-Every ticket carries exactly one of these labels.
+Every ticket sits in one of these two modes. The mode is a judgement about the *work*, read off
+§17 — it is not recorded as a label. Every ticket in this repo is implemented by hand; what differs
+is whether the ticket is allowed to hand you the derivation.
 
-### `ready-for-human` — build it by hand
+### Domain core — the derivation is the exercise
 
 Applies to everything on the §17 do-not-AI-assist list:
 
@@ -60,14 +62,14 @@ exactly what 'done' means, and I have not yet been told how."*
 > ❌ "Do a depth-first search from `parent`; maintain a visited set; if you reach `child`, there's a
 > cycle. Colour nodes white/grey/black for the topological sort."
 
-### `ready-for-agent` — plumbing, assistance is fine
+### Plumbing — spell it out
 
 Applies to what §17 explicitly permits: scaffolding, migration setup, test fixtures, seed data, DTO
 mapping, config, CI, docs, adapters.
 
-These may be fully prescriptive — commands, file paths, exact config, worked examples. A ticket
-being AFK-able is the goal, and there is no skill being protected here. Being vague to seem
-consistent wastes the author's time.
+These may be fully prescriptive — commands, file paths, exact config, worked examples. There is no
+skill being protected here, so withholding buys nothing. Being vague to seem consistent wastes the
+author's time.
 
 ## Structure
 
@@ -82,7 +84,7 @@ Keep the existing format. Every ticket has:
 ## Goal
 One or two sentences. What exists when this is done.
 
-## Shape                                     (ready-for-human only)
+## Shape                                     (domain-core tickets only)
 Types, signatures, states. The scaffolding, not the fill.
 
 ## Acceptance criteria
@@ -91,7 +93,7 @@ Types, signatures, states. The scaffolding, not the fill.
 ## Context
 Domain background, quoted spec/ADR lines, the failure modes worth knowing.
 
-## Working agreement (§17)                   (ready-for-human only)
+## Working agreement (§17)                   (domain-core tickets only)
 Why this is hand-built, and the `docs/ai-log.md` note if the rule gets broken.
 ```
 

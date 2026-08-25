@@ -74,5 +74,7 @@ for every project. Analyzer suppressions live in `.editorconfig`, each with a re
   every RLS policy. Ticket 0.6.
 - CI pipeline (ticket 0.9), ADRs 001–005 (ticket 0.10), tag `v0.0.0` (ticket 0.11).
 
-Tracked as GitHub issues, grouped by milestone. `ready-for-human` marks the tickets that are
-hand-built by design; `ready-for-agent` marks the plumbing.
+Tracked as GitHub issues, grouped by milestone, with build order on the
+[project board](https://github.com/users/armaatus/projects/1) — `Status`, `Blockers`, `Unlocks` and
+`Critical path` are derived from each issue's **Blocked by:** line by `scripts/sync-board.py`.
+Every ticket is implemented by hand; see the working agreement in [`CLAUDE.md`](CLAUDE.md).

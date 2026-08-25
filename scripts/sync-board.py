@@ -78,7 +78,9 @@ def fetch_issues() -> dict[int, dict]:
     }
 
 
-BLOCKED_BY = re.compile(r"^\s*\*\*Blocked by:\*\*(.*)$", re.MULTILINE)
+# "**Depends on:**" is a synonym some tickets use. Parse both, or a ticket that spells it
+# the other way is silently read as having no blockers at all.
+BLOCKED_BY = re.compile(r"^\s*\*\*(?:Blocked by|Depends on):\*\*(.*)$", re.MULTILINE)
 NO_BLOCKERS = re.compile(r"^\s*(none|nothing|n/?a)\b", re.IGNORECASE)
 
 
@@ -126,6 +128,25 @@ def wire_declared(issues: dict[int, dict], existing: dict[int, list[int]]) -> di
 
     for n, line in unparsed:
         print(f"  note: #{n} has a 'Blocked by' line this cannot parse: {line[:70]!r}")
+
+    # This function only ever adds. An edge that is in the graph but not in the body can
+    # therefore never be removed by a run — it just quietly keeps blocking. Say so, loudly,
+    # so a stale or mis-parsed edge is a line of output rather than a permanent wrong answer.
+    undeclared = []
+    for n, bs in sorted(graph.items()):
+        if n not in issues:
+            continue
+        want, _ = declared_blockers(issues[n]["body"])
+        for b in bs:
+            if b not in want:
+                undeclared.append((n, b))
+    if undeclared:
+        print(f"{len(undeclared)} wired dependencies are NOT declared in the issue body "
+              f"(this script cannot remove them — unwire by hand):")
+        for n, b in undeclared[:20]:
+            print(f"  #{n} <- #{b}")
+        if len(undeclared) > 20:
+            print(f"  ... and {len(undeclared) - 20} more")
     if added:
         verb = "would add" if DRY else "added"
         print(f"{verb} {len(added)} dependencies: " +
