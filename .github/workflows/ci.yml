@@ -59,6 +59,18 @@ jobs:
       # cache: true hashes the packages.lock.json files and restores ~/.nuget/packages from it.
       # cache-dependency-path is required because the action only looks in the repo root by default,
       # and every lock file here is under src/ or tests/.
+      #
+      # Measured on this repo rather than assumed, cold vs warm:
+      #     setup-dotnet    4s -> 13s   (+9, restoring a 750 MB cache)
+      #     Restore tools   7s ->  3s
+      #     Restore locked 13s ->  6s
+      #     post-job save   8s ->  0s
+      #     TOTAL         109s -> 95s
+      # So it buys 14s of wall clock and ZERO billed minutes — both runs round to 2. It is kept
+      # because restore time grows with the dependency graph and the cache grows with it, while the
+      # 750 MB sits inside a 10 GB quota that currently holds one entry. If that stops being true —
+      # cache eviction churn from frequent lock-file changes, or the quota filling — dropping these
+      # two lines costs 14s and nothing else.
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
