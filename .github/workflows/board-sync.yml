@@ -25,26 +25,29 @@ name: Board sync
 # Until the secret exists this job logs a warning and exits 0 rather than failing.
 # --------------------------------------------------------------------------------
 
-# Deliberately NOT triggered per issue event.
+# Triggered on issue status changes only — opened, closed, reopened.
 #
-# A workflow run is spawned per triggering event, not per unit of work, so batching the script's
-# steps into one job cannot reduce the count — the only lever is how often it is triggered. On the
-# `issues:` trigger, editing twenty tickets in one sitting queued twenty runs, of which the
-# concurrency group then cancelled most: the board ended up correct, and the run history was noise
-# that made a genuine failure hard to spot.
+# Not on edited/labeled/milestoned: those fire constantly during ordinary ticket work and each one
+# spawns its own run (a run is per triggering event, not per unit of work — batching the script's
+# steps cannot change that). Editing twenty tickets in one sitting queued twenty runs which the
+# concurrency group then mostly cancelled, and the run history became noise that would hide a real
+# failure.
 #
-# Hourly instead. The board is a planning aid, not a source of truth — an hour stale costs nothing,
-# and `workflow_dispatch` covers "I need it right now". Every run is idempotent and a no-op run
-# writes nothing, so the cost of a wasted tick is one API read.
+# Status changes are the events that actually move the board, they are rare, and each run reconciles
+# the WHOLE graph rather than just the issue that triggered it. So a "Blocked by" line edited in
+# between is picked up by the next open/close, with no cron needed to sweep for it.
 on:
+  issues:
+    types:
+      - opened
+      - closed
+      - reopened
   workflow_dispatch:
     inputs:
       dry_run:
         description: "Report what would change without writing anything"
         type: boolean
         default: false
-  schedule:
-    - cron: "7 * * * *" # hourly, offset off the hour to avoid the scheduler's busiest minute
 
 # One run at a time: the Projects API rejects concurrent writes to the same project.
 # Do not cancel in progress — a half-applied sync leaves the board inconsistent until
