@@ -1,4 +1,5 @@
 using System.Reflection;
+
 using NetArchTest.Rules;
 
 namespace Whetstone.Architecture.Tests;
