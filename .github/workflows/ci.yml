@@ -1,0 +1,142 @@
+name: CI
+
+# Every gate from spec 13.6 and ticket 0.9, on every push to main and every pull request.
+#
+# ONE job, not one per gate. GitHub bills each job rounded up to the whole minute, so the previous
+# four-job layout cost 5 billed minutes for 1m42s of work: build+test 1m28s -> 2, and three jobs of
+# 2-9s -> 1 each. Same gates in one job is ~2. Parallel jobs earn their overhead when they cut
+# wall-clock time; here every gate but the secret scan needs the same restore, so splitting them
+# bought nothing and paid for four runner start-ups.
+#
+# Third-party actions are pinned by commit SHA, not tag. A tag is mutable, so "@v7" is a promise
+# from someone else about code nobody here has read — the same supply-chain argument as <clear />
+# in NuGet.config. Dependabot keeps the pins from going stale.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes the previous run on the same ref. Safe to cancel: unlike the board sync,
+# a half-finished CI run writes nothing.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: Gates
+    runs-on: ubuntu-latest # Testcontainers needs Docker. macOS runners do not have it.
+    env:
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+      SOLUTION: Whetstone.slnx
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans history, not just the tip
+
+      # Gate 7 runs first, before the SDK is even installed: it needs nothing from the build, it
+      # takes seconds, and a leaked credential is the one result you want even when everything else
+      # is broken. Ordering is what preserves that signal now the gates share a job.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+
+      # CI re-runs what hooks/pre-commit runs locally, so --no-verify buys nothing.
+      - name: Secret scan
+        run: gitleaks git --redact --no-banner .
+
+      # cache: true hashes the packages.lock.json files and restores ~/.nuget/packages from it.
+      # cache-dependency-path is required because the action only looks in the repo root by default,
+      # and every lock file here is under src/ or tests/.
+      #
+      # Measured on this repo rather than assumed, cold vs warm:
+      #     setup-dotnet    4s -> 13s   (+9, restoring a 750 MB cache)
+      #     Restore tools   7s ->  3s
+      #     Restore locked 13s ->  6s
+      #     post-job save   8s ->  0s
+      #     TOTAL         109s -> 95s
+      # So it buys 14s of wall clock and ZERO billed minutes — both runs round to 2. It is kept
+      # because restore time grows with the dependency graph and the cache grows with it, while the
+      # 750 MB sits inside a 10 GB quota that currently holds one entry. If that stops being true —
+      # cache eviction churn from frequent lock-file changes, or the quota filling — dropping these
+      # two lines costs 14s and nothing else.
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      # Gate 1. The retry is not superstition. On a COLD package cache, `dotnet tool restore` fails
+      # if aspire.cli is restored before dotnet-ef — the SDK validates dotnet-ef's commands against
+      # aspire's DotnetToolSettings.xml. Reproduced deterministically on linux/amd64 with SDK
+      # 10.0.400; does not reproduce on macOS, which is why it never showed up locally.
+      # .config/dotnet-tools.json lists dotnet-ef first to avoid it, but that ordering is
+      # load-bearing and nothing enforces it — `dotnet tool install` can rewrite the file.
+      - name: Restore tools
+        run: dotnet tool restore || dotnet tool restore
+
+      # Gate 2. Fails if any packages.lock.json is stale, which is the point: an unlocked restore
+      # can silently resolve a different graph than the one that was reviewed.
+      - name: Restore (locked)
+        id: restore
+        run: dotnet restore "$SOLUTION" --locked-mode
+
+      # Gate 3. Before the build, so a formatting failure is not buried under compiler output.
+      - name: Verify formatting
+        run: dotnet format "$SOLUTION" --verify-no-changes --no-restore
+
+      # Gate 4. Warnings are errors (Directory.Build.props).
+      - name: Build
+        run: dotnet build "$SOLUTION" -c Release --no-restore
+
+      # Gate 5.
+      - name: Test
+        run: dotnet test "$SOLUTION" -c Release --no-build
+
+      # Gate 6. Defence in depth, and in practice the second line rather than the first: a vulnerable
+      # package fails the *restore*, because Directory.Build.props sets NuGetAuditMode=all and
+      # TreatWarningsAsErrors promotes NU1903 to an error. Verified by planting System.Net.Http 4.3.0
+      # (GHSA-7jgj-8wvc-jh57). This step is what still works if auditing is ever narrowed or
+      # switched off, and it names the problem in one line instead of in NuGet's output.
+      #
+      # `dotnet list package --vulnerable` exits 0 even when it finds something, so the exit code is
+      # not a gate — grep the output and fail explicitly.
+      #
+      # Runs even if the build or tests failed: it only needs the restore, and a broken build is no
+      # reason to withhold a security result for a whole round trip.
+      - name: Vulnerable packages
+        if: ${{ !cancelled() && steps.restore.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          dotnet list "$SOLUTION" package --vulnerable --include-transitive 2>&1 | tee vulnerable.txt
+          if grep -qi 'has the following vulnerable packages' vulnerable.txt; then
+            echo "::error title=Vulnerable packages::At least one advisory reported. See the log above."
+            exit 1
+          fi
+          echo "No vulnerable packages reported."
+
+      # Gates 8 and 9. Steps rather than jobs: each was costing a whole billed minute to echo three
+      # lines. A gate added later is a gate that gets argued about; one that already exists and does
+      # nothing yet gets filled in. Promote either to its own job when it has real work to do.
+      - name: Eval harness (not wired yet)
+        if: ${{ !cancelled() }}
+        run: |
+          echo "Placeholder. Wired from Epic 4 onward: #68 (4.12). Spec 9.4 defines the gates."
+
+      - name: Lens content-hash pinning (not wired yet)
+        if: ${{ !cancelled() }}
+        run: |
+          echo "Placeholder. Wired from Epic 2.5 onward: #111 (L2 - Lens registration and pinning)."
+          echo "ADR-0007 section 1: re-hash every registered Lens against its pinned hash;"
+          echo "any mismatch fails the build. Never fall back to newest, never warn and continue."
