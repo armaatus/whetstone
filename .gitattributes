@@ -5,3 +5,4 @@
 *.cs   text diff=csharp
 *.png  binary
 *.jpg  binary
+*text=auto eol=lf

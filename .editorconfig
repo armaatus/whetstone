@@ -408,3 +408,9 @@ dotnet_diagnostic.CA2007.severity = none
 # name is the failure message a human reads in CI output. Readability wins over a
 # naming rule aimed at public API surface, and test assemblies ship to nobody.
 dotnet_diagnostic.CA1707.severity = none
+
+[**/AssemblyMarker.cs]
+# CA1515: the marker exists precisely so another assembly — Whetstone.Architecture.Tests
+# — can name a type in this one without depending on a real type. Executable projects
+# would otherwise be told to make it internal, which removes the only reason it exists.
+dotnet_diagnostic.CA1515.severity = none
