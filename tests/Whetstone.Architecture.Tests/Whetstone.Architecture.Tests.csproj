@@ -5,11 +5,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="TngTech.ArchUnitNET" />
     <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -21,6 +27,7 @@
     <ProjectReference Include="..\..\src\Whetstone.Application\Whetstone.Application.csproj" />
     <ProjectReference Include="..\..\src\Whetstone.Infrastructure\Whetstone.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Whetstone.Web\Whetstone.Web.csproj" />
+    <ProjectReference Include="..\..\src\Whetstone.Web.Client\Whetstone.Web.Client.csproj" />
     <ProjectReference Include="..\..\src\Whetstone.Worker\Whetstone.Worker.csproj" />
   </ItemGroup>
 
