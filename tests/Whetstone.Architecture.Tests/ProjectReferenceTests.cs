@@ -54,7 +54,7 @@ public class ProjectReferenceTests
     {
         var violations = new List<string>();
 
-        foreach (var (project, allowed) in Allowed)
+        foreach ((string project, string[] allowed) in Allowed)
         {
             var csproj = Path.Combine(RepoRoot(), "src", project, project + ".csproj");
             Assert.True(File.Exists(csproj), $"expected {csproj} to exist");

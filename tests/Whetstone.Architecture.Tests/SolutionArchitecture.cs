@@ -24,12 +24,12 @@ internal static partial class SolutionArchitecture
 {
     private static readonly Assembly[] Layers =
     [
-        typeof(Whetstone.Domain.AssemblyMarker).Assembly,
-        typeof(Whetstone.Application.AssemblyMarker).Assembly,
-        typeof(Whetstone.Infrastructure.AssemblyMarker).Assembly,
-        typeof(Whetstone.Web.AssemblyMarker).Assembly,
-        typeof(Whetstone.Worker.AssemblyMarker).Assembly,
-        typeof(Whetstone.Web.Client.AssemblyMarker).Assembly,
+        typeof(Domain.AssemblyMarker).Assembly,
+        typeof(Application.AssemblyMarker).Assembly,
+        typeof(Infrastructure.AssemblyMarker).Assembly,
+        typeof(Web.AssemblyMarker).Assembly,
+        typeof(Worker.AssemblyMarker).Assembly,
+        typeof(Web.Client.AssemblyMarker).Assembly,
     ];
 
     /// <summary>
