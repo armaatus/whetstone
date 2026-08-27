@@ -36,7 +36,6 @@ public class WithholdingBoundaryTests
     /// </summary>
     private static string? PathToWithheldHalf(IType root)
     {
-        // Yours to write. See the decision list below.
         throw new NotImplementedException();
     }
 }
