@@ -1,8 +1,8 @@
-using static ArchUnitNET.Fluent.ArchRuleDefinition;
-
 using ArchUnitNET.Domain;
 
 using Whetstone.Application;
+
+using static ArchUnitNET.Fluent.ArchRuleDefinition;
 
 namespace Whetstone.Architecture.Tests;
 
