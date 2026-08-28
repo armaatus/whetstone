@@ -18,6 +18,12 @@ internal static class DbInitScripts
     /// </summary>
     public static string RootPath { get; } = Resolve();
 
+    /// <summary>
+    /// Performs the walk described on <see cref="RootPath"/>, and throws rather than returning null
+    /// when it finds nothing: every test in this project bind-mounts the result, so a wrong or
+    /// missing directory has to fail here, saying so, instead of surfacing as a container that comes
+    /// up without any roles in it.
+    /// </summary>
     private static string Resolve()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory);

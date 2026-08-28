@@ -31,6 +31,15 @@ public sealed class DatabaseInitPasswordGuardTests
         "WHETSTONE_READONLY_PASSWORD",
     ];
 
+    /// <summary>
+    /// Both halves of the abort, because neither is sufficient alone: the container must fail to
+    /// start, and the entrypoint's own output must name <paramref name="variable"/> as the reason.
+    /// </summary>
+    /// <param name="variable">The role password variable withheld from this container.</param>
+    /// <param name="value">
+    /// The empty string to supply it empty, or <see langword="null"/> to leave it unset — the two
+    /// routes into the guard, which reach it as a set-but-empty and an unset psql variable.
+    /// </param>
     [Theory]
     [InlineData("WHETSTONE_MIGRATOR_PASSWORD", "")]
     [InlineData("WHETSTONE_APP_PASSWORD", "")]
@@ -101,5 +110,9 @@ public sealed class DatabaseInitPasswordGuardTests
         return builder.Build();
     }
 
+    /// <summary>
+    /// A password for a container that is expected never to finish starting. Generated rather than
+    /// written down: hooks/pre-commit runs gitleaks over this file.
+    /// </summary>
     private static string NewSecret() => "t" + Guid.NewGuid().ToString("N");
 }

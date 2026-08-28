@@ -35,6 +35,11 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
     // negative test in this file.
     // ---------------------------------------------------------------------
 
+    /// <summary>
+    /// The positive control the banner above names. Asserted from <c>to_regclass</c> as the
+    /// superuser rather than from "no exception was thrown", so a CREATE that silently did nothing
+    /// could not satisfy it.
+    /// </summary>
     [Fact]
     public async Task Migrator_can_create_a_table()
     {
@@ -47,6 +52,11 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
         Assert.True(exists, "whetstone_migrator must be able to run DDL — it is the role migrations run as.");
     }
 
+    /// <summary>
+    /// All four verbs spec 7.3 grants <c>whetstone_app</c>, in one test and against a table the init
+    /// script never saw. Split into four, a privilege model that granted only SELECT would still
+    /// show three greens and one red, which reads as one broken test rather than a broken model.
+    /// </summary>
     [Fact]
     public async Task App_can_insert_select_update_and_delete_a_table_created_after_the_init_script_ran()
     {
@@ -68,6 +78,11 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
         Assert.Equal(0, remaining);
     }
 
+    /// <summary>
+    /// The half of <c>whetstone_readonly</c> that must work, on a table created after the grant.
+    /// The count has to come back — "the statement did not throw" is also true of a connection that
+    /// was never opened.
+    /// </summary>
     [Fact]
     public async Task Readonly_can_select_a_table_created_after_the_init_script_ran()
     {
@@ -107,6 +122,11 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
     // Negative control.
     // ---------------------------------------------------------------------
 
+    /// <summary>
+    /// The obvious DDL route, closed by <c>whetstone_app</c> holding no CREATE on <c>public</c>.
+    /// The assertion is on SQLSTATE and not on the exception type: a mistyped statement also throws
+    /// <see cref="PostgresException"/>, and would pass a test that only asked whether it threw.
+    /// </summary>
     [Fact]
     public async Task App_cannot_create_a_table()
     {
@@ -145,6 +165,11 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
         Assert.Equal(Denied, exception.SqlState);
     }
 
+    /// <summary>
+    /// The three verbs <c>whetstone_readonly</c> must not hold, each against the same table a
+    /// migration would have created. One case per verb because they are three separate grants:
+    /// a model that withheld INSERT alone should fail here twice, not once.
+    /// </summary>
     [Theory]
     [InlineData("INSERT INTO readonly_write_probe (id, tenant_id, body) VALUES (gen_random_uuid(), gen_random_uuid(), 'x');")]
     [InlineData("UPDATE readonly_write_probe SET body = 'x';")]
@@ -198,6 +223,11 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
         Assert.Equal(0, offenders);
     }
 
+    /// <summary>
+    /// Wider than the BYPASSRLS check above, and per role so the failure names the offender.
+    /// CREATEDB, CREATEROLE and REPLICATION are separate attributes rather than degrees of one, and
+    /// CREATEROLE is transitive in practice: a role holding it can grant itself the others.
+    /// </summary>
     [Theory]
     [InlineData(DatabaseRoleFixture.MigratorRole)]
     [InlineData(DatabaseRoleFixture.AppRole)]
@@ -215,6 +245,11 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
         Assert.Equal(0, attributes);
     }
 
+    /// <summary>
+    /// The catalogue counterpart to <see cref="App_cannot_create_a_table"/>. That test closes one
+    /// statement; CREATE on a schema also covers types, functions, sequences and everything else a
+    /// migration can add, and <c>has_schema_privilege</c> is the claim about all of them at once.
+    /// </summary>
     [Fact]
     public async Task App_holds_no_create_privilege_on_the_schema_it_works_in()
     {
@@ -302,11 +337,25 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
 
     // ---------------------------------------------------------------------
 
+    /// <summary>
+    /// Creates a probe table the way a migration would: as <c>whetstone_migrator</c>, after
+    /// <c>01-roles.sql</c> has finished — which is the only way to exercise default privileges
+    /// rather than the grants the script issued over objects that already existed.
+    /// <para>
+    /// IF NOT EXISTS because every test in this class shares one database, and xUnit runs the
+    /// methods of a class in an unspecified order.
+    /// </para>
+    /// </summary>
     private async Task CreateTableAsMigratorAsync(string table) =>
         await ExecuteAsync(fixture.MigratorConnectionString,
             $"CREATE TABLE IF NOT EXISTS {table} (id uuid PRIMARY KEY, tenant_id uuid NOT NULL, body text);")
             .ConfigureAwait(true);
 
+    /// <summary>
+    /// Runs <paramref name="sql"/> on a connection of its own, as whoever
+    /// <paramref name="connectionString"/> names. A fresh connection per call is the point: role,
+    /// session GUCs and search_path all reset, so no test can leave state for the next one.
+    /// </summary>
     // The nesting is CA2007: `await using var` gives the analyser nowhere to put a ConfigureAwait,
     // and the repo treats warnings as errors.
     private static async Task ExecuteAsync(string connectionString, string sql)
@@ -324,6 +373,12 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
         }
     }
 
+    /// <summary>
+    /// Runs <paramref name="sql"/> and returns its first column of its first row as
+    /// <typeparamref name="T"/>. Converted rather than cast: the catalogue reads here come back as
+    /// <c>boolean</c>, <c>name</c>, <c>text</c> and <c>bigint</c>, and the assertions want each of
+    /// them as the CLR type the claim is naturally stated in.
+    /// </summary>
     private static async Task<T> ScalarAsync<T>(string connectionString, string sql)
     {
         var connection = new NpgsqlConnection(connectionString);
@@ -340,6 +395,11 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
         }
     }
 
+    /// <summary>
+    /// Runs <paramref name="sql"/> expecting PostgreSQL to refuse it, and hands the exception back
+    /// so the caller can assert on <see cref="PostgresException.SqlState"/>. Every negative test in
+    /// this file goes through here, because "it threw" is the assertion that a typo also satisfies.
+    /// </summary>
     private static async Task<PostgresException> DeniedAsync(string connectionString, string sql) =>
         await Assert.ThrowsAsync<PostgresException>(
             () => ExecuteAsync(connectionString, sql)).ConfigureAwait(true);

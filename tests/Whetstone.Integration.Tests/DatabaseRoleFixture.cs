@@ -65,12 +65,29 @@ public sealed class DatabaseRoleFixture : IAsyncLifetime
     /// <summary>Connects as the container superuser. For reading catalogues only — never a model for application code.</summary>
     public string SuperuserConnectionString => ConnectionStringFor(Superuser, SuperuserSecret);
 
+    /// <summary>
+    /// Connects as the role migrations run as: it owns <c>whetstone</c> and every table a migration
+    /// creates in it. Spec 6.5 hands this to a separate one-shot step, never to a running host.
+    /// </summary>
     public string MigratorConnectionString => ConnectionStringFor(MigratorRole, MigratorSecret);
 
+    /// <summary>
+    /// Connects as the credential the application itself runs on (spec 7.3): DML on tables it does
+    /// not own, and nothing else. Also the readiness probe — see <see cref="WaitForInitScriptAsync"/>.
+    /// </summary>
     public string AppConnectionString => ConnectionStringFor(AppRole, AppSecret);
 
+    /// <summary>
+    /// Connects as the SELECT-only role of spec 7.3. It exists here so that "readonly cannot write"
+    /// can be asserted as a real denial against a real login, rather than read off a grant listing.
+    /// </summary>
     public string ReadonlyConnectionString => ConnectionStringFor(ReadonlyRole, ReadonlySecret);
 
+    /// <summary>
+    /// Starts the container, then blocks until the init script has actually produced something
+    /// usable. <c>StartAsync</c> alone only establishes that Postgres accepts connections, which it
+    /// does whether or not <c>01-roles.sql</c> achieved anything.
+    /// </summary>
     public async Task InitializeAsync()
     {
         // ConfigureAwait(true), not (false): CA2007 demands an explicit choice and xUnit1030
@@ -79,10 +96,26 @@ public sealed class DatabaseRoleFixture : IAsyncLifetime
         await WaitForInitScriptAsync().ConfigureAwait(true);
     }
 
+    /// <summary>
+    /// Destroys the container and, with it, the whole database. Nothing is reset between the test
+    /// classes that share this fixture because nothing outlives it.
+    /// </summary>
     public async Task DisposeAsync() => await _container.DisposeAsync().ConfigureAwait(true);
 
+    /// <summary>
+    /// One password, for one container, for a few seconds. Generated rather than written down for
+    /// the reason given on the secret fields above.
+    /// </summary>
     private static string NewSecret() => "t" + Guid.NewGuid().ToString("N");
 
+    /// <summary>
+    /// Builds a connection string for <paramref name="role"/> against the container's mapped port.
+    /// <para>
+    /// Always to <c>whetstone</c>, never to the superuser-named database the entrypoint falls back
+    /// to creating: privileges on schemas, tables and default ACLs are per-database, so a connection
+    /// to the wrong one would observe a privilege model nobody wrote.
+    /// </para>
+    /// </summary>
     private string ConnectionStringFor(string role, string password) => new NpgsqlConnectionStringBuilder
     {
         Host = _container.Hostname,
