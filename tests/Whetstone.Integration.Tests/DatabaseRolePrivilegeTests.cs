@@ -54,8 +54,8 @@ public sealed class DatabaseRolePrivilegeTests(DatabaseRoleFixture fixture)
 
     /// <summary>
     /// All four verbs spec 7.3 grants <c>whetstone_app</c>, in one test and against a table the init
-    /// script never saw. Split into four, a privilege model that granted only SELECT would still
-    /// show three greens and one red, which reads as one broken test rather than a broken model.
+    /// script never saw. Split into four, a privilege model that granted only SELECT would show one
+    /// green and three reds, which reads as three broken tests rather than one broken model.
     /// </summary>
     [Fact]
     public async Task App_can_insert_select_update_and_delete_a_table_created_after_the_init_script_ran()
