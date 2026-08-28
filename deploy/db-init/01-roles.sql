@@ -43,7 +43,8 @@
 --    from Aspire parameters persisted to user secrets (so they stay stable
 --    across restarts, which matters because the roles are only created once).
 --    scram-sha-256 is the auth method, so a LOGIN role with no password cannot
---    connect at all — an unset variable must fail loudly, and does, below.
+--    connect at all — a variable that is unset *or empty* must fail loudly, and
+--    does, below.
 --
 -- 3. whetstone_app gets SELECT, INSERT, UPDATE, DELETE. Nothing else.
 --
@@ -89,8 +90,18 @@
 -- ---------------------------------------------------------------------------
 -- 0. Passwords, from the environment
 -- ---------------------------------------------------------------------------
--- \getenv leaves the psql variable unset if the environment variable is absent,
--- so :{?name} distinguishes "not supplied" from "supplied empty".
+-- Two ways to arrive here without a usable password, and they have to be one
+-- check rather than two:
+--
+--   * absent      — \getenv leaves the psql variable unset, and :{?name} is false.
+--   * present but empty — \getenv sets the variable to '', and :{?name} is TRUE.
+--
+-- The second is the dangerous one. `PASSWORD ''` is not rejected: PostgreSQL
+-- stores it as a null password, so all three roles get created, the database
+-- gets created, initdb reports success, and the container comes up healthy.
+-- The first symptom is the application failing scram-sha-256 authentication
+-- against roles that plainly exist — the failure lands as far as possible from
+-- its cause. So normalise "unset" to "empty" and reject the single condition.
 
 \getenv migrator_password WHETSTONE_MIGRATOR_PASSWORD
 \getenv app_password      WHETSTONE_APP_PASSWORD
@@ -98,25 +109,46 @@
 
 \if :{?migrator_password}
 \else
-DO $$ BEGIN
-    RAISE EXCEPTION
-        'WHETSTONE_MIGRATOR_PASSWORD is not set. scram-sha-256 is the auth method: a LOGIN role without a password can never connect. See deploy/db-init/README.md.';
-END $$;
+\set migrator_password ''
 \endif
 
 \if :{?app_password}
 \else
-DO $$ BEGIN
-    RAISE EXCEPTION
-        'WHETSTONE_APP_PASSWORD is not set. scram-sha-256 is the auth method: a LOGIN role without a password can never connect. See deploy/db-init/README.md.';
-END $$;
+\set app_password ''
 \endif
 
 \if :{?readonly_password}
 \else
+\set readonly_password ''
+\endif
+
+-- \gset rather than three more \if :{?...}: psql's \if takes a value, not an
+-- expression, so anything about the *contents* of a variable has to be decided
+-- by the server. ::text so the branch reads 'true'/'false' rather than 't'/'f'.
+
+SELECT (:'migrator_password' = '')::text AS migrator_password_missing,
+       (:'app_password'      = '')::text AS app_password_missing,
+       (:'readonly_password' = '')::text AS readonly_password_missing
+\gset
+
+\if :migrator_password_missing
 DO $$ BEGIN
     RAISE EXCEPTION
-        'WHETSTONE_READONLY_PASSWORD is not set. scram-sha-256 is the auth method: a LOGIN role without a password can never connect. See deploy/db-init/README.md.';
+        'WHETSTONE_MIGRATOR_PASSWORD is unset or empty. scram-sha-256 is the auth method: a LOGIN role without a password can never connect. See deploy/db-init/README.md.';
+END $$;
+\endif
+
+\if :app_password_missing
+DO $$ BEGIN
+    RAISE EXCEPTION
+        'WHETSTONE_APP_PASSWORD is unset or empty. scram-sha-256 is the auth method: a LOGIN role without a password can never connect. See deploy/db-init/README.md.';
+END $$;
+\endif
+
+\if :readonly_password_missing
+DO $$ BEGIN
+    RAISE EXCEPTION
+        'WHETSTONE_READONLY_PASSWORD is unset or empty. scram-sha-256 is the auth method: a LOGIN role without a password can never connect. See deploy/db-init/README.md.';
 END $$;
 \endif
 

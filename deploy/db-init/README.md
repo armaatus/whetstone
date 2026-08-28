@@ -65,8 +65,12 @@ so they stay stable across restarts. They have to: the roles are created once, w
 password was in the environment at that moment, and a regenerated value would leave the application
 unable to authenticate against roles it created itself.
 
-If a variable is missing the script raises and startup aborts, rather than creating a `LOGIN` role
-that — under `scram-sha-256` — could never connect at all.
+If a variable is missing **or set to an empty string** the script raises and startup aborts, rather
+than creating a `LOGIN` role that — under `scram-sha-256` — could never connect at all. The empty
+case is the one worth the extra guard: `PASSWORD ''` is stored as a null password rather than
+rejected, so without it the roles, the database and the container would all come up looking healthy
+and the first symptom would be an authentication failure against roles that plainly exist.
+`DatabaseInitPasswordGuardTests` holds that line.
 
 ## What lives here
 
