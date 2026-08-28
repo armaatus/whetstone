@@ -27,6 +27,12 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <!-- The raw ADO.NET driver, referenced directly by Whetstone.Integration.Tests: ticket 0.6
+         asserts the database's privilege model by connecting as each of the three roles from
+         spec 7.3, which is below the level EF Core operates at. Held on the same 10.0.x line as
+         the provider above, because the provider resolves this package transitively and two
+         versions of it in one graph is a restore failure waiting to happen. -->
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
   <!-- Observability (spec NFR-4, NFR-6) -->
   <ItemGroup>
