@@ -106,6 +106,26 @@ internal static partial class SolutionArchitecture
     }
 
     /// <summary>
+    /// Walks up from the test binary to the checkout root, identified by Whetstone.slnx.
+    ///
+    /// Lives here rather than on one test class because more than one rule reads repo files
+    /// instead of IL: <see cref="ProjectReferenceTests"/> reads declared csproj references, and
+    /// <see cref="AppSettingsStructureTests"/> reads the committed appsettings.json files.
+    /// </summary>
+    public static string RepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Whetstone.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName
+            ?? throw new InvalidOperationException($"Whetstone.slnx not found above {AppContext.BaseDirectory}");
+    }
+
+    /// <summary>
     /// ArchUnitNET names assemblies by full identity, so messages carry a
     /// ", Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" tail that is identical on every
     /// line and tells a reader nothing. Strip it so the failure reads as a sentence.

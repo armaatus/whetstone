@@ -1,9 +1,13 @@
+using Whetstone.Web;
 using Whetstone.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Service discovery, resilience, health checks, OpenTelemetry (spec NFR-4, NFR-6).
 builder.AddServiceDefaults();
+
+// Typed options with ValidateOnStart (ticket 0.7): a missing secret fails right here, at boot.
+builder.AddWhetstoneOptions();
 
 // Render modes per spec 5.2 (recorded verbatim in ADR-002):
 //   static SSR         marketing, login, docs

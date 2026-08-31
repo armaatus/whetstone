@@ -65,12 +65,16 @@ var migratorConnection = builder.AddConnectionString("whetstone-migrator",
     ReferenceExpression.Create(
         $"Host={pgHost};Port={pgPort};Database=whetstone;Username=whetstone_migrator;Password={migratorPassword.Resource}"));
 
+// Delivered as Whetstone__Database__ConnectionString rather than via WithReference: ticket 0.7
+// makes Whetstone:Database:ConnectionString the one key both hosts bind (and validate at boot),
+// and production sets the same variable. A second copy under ConnectionStrings:whetstone-app
+// would be a second name for the same secret, which is how the wrong one gets picked up.
 builder.AddProject<Projects.Whetstone_Worker>("worker")
-    .WithReference(appConnection)
+    .WithEnvironment("Whetstone__Database__ConnectionString", appConnection.Resource.ConnectionStringExpression)
     .WaitFor(whetstoneDb);
 
 builder.AddProject<Projects.Whetstone_Web>("web")
-    .WithReference(appConnection)
+    .WithEnvironment("Whetstone__Database__ConnectionString", appConnection.Resource.ConnectionStringExpression)
     .WaitFor(whetstoneDb)
     .WithExternalHttpEndpoints();
 

@@ -37,11 +37,44 @@ dotnet tool restore          # aspire CLI + dotnet-ef, pinned in .config/dotnet-
 dotnet restore
 git config core.hooksPath hooks   # per clone: enables the gitleaks pre-commit hook
 dotnet dev-certs https --trust    # once per machine; prompts for your keychain
+
+# Dev secrets — once per machine; see "Configuration and secrets" below.
+# The worker validates these at boot and refuses to start without them.
+dotnet user-secrets set "Whetstone:Ai:ApiKey" "<key>" --project src/Whetstone.Worker
+dotnet user-secrets set "Whetstone:Corpus:RepoAccessToken" "<token>" --project src/Whetstone.Worker
+
 dotnet aspire run
 ```
 
 `aspire run` starts the Postgres container, the web app, and the worker, and prints a
 dashboard URL. The web app is at <https://localhost:7022>, Postgres on `localhost:5433`.
+
+## Configuration and secrets
+
+Three layers, nothing else (spec §13.5): `appsettings.json` holds non-secret defaults and
+structure — every secret-bearing key present with an **empty** value, so the shape is documented
+and the absence is visible; `dotnet user-secrets` holds dev values, outside the repo tree, so
+committing one is structurally impossible; environment variables override in production
+(double underscore for nesting: `Whetstone__Ai__ApiKey`). There is no
+`appsettings.Development.json` — it is gitignored *and* fails `Whetstone.Architecture.Tests`
+if one appears.
+
+Every section binds to a typed options class in `Whetstone.Application/Configuration/` with
+`ValidateOnStart()`, so a missing secret crashes the process at boot — where the deploy fails
+visibly — not on the first background job hours later. Each host binds only what it consumes:
+the Worker takes `Whetstone:Ai`, `Whetstone:Corpus`, `Whetstone:Lens` and `Whetstone:Database`;
+the Web host takes `Whetstone:Database` alone, so the AI key and the corpus token never enter
+its environment (ADR-0011 §4). In development the AppHost injects the database connection
+string (as `whetstone_app`); the two real dev secrets are set once:
+
+```bash
+dotnet user-secrets set "Whetstone:Ai:ApiKey" "<key>" --project src/Whetstone.Worker
+dotnet user-secrets set "Whetstone:Corpus:RepoAccessToken" "<token>" --project src/Whetstone.Worker
+```
+
+Lens *enablement* is deliberately not configuration: a Lens is enabled per tenant by a
+`TenantAdmin` and audited (ADR-0007 §2) — database state. Configuration holds only where the
+registry is and each Lens's pinned `id@version` + content hash.
 
 ## Build and test
 
@@ -69,10 +102,7 @@ for every project. Analyzer suppressions live in `.editorconfig`, each with a re
 
 ## Not done yet (Epic 0)
 
-- **`deploy/db-init/01-roles.sql` is empty.** Until it creates `whetstone_app` and the app
-  connects as that role, local development runs as the Postgres superuser, which bypasses
-  every RLS policy. Ticket 0.6.
-- CI pipeline (ticket 0.9), ADRs 001–005 (ticket 0.10), tag `v0.0.0` (ticket 0.11).
+- Remaining open tickets: 0.8 (gitleaks) and 0.11 (tag `v0.0.0`) — see the project board.
 
 Tracked as GitHub issues, grouped by milestone, with build order on the
 [project board](https://github.com/users/armaatus/projects/1) — `Status`, `Blockers`, `Unlocks` and
