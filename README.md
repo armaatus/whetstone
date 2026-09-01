@@ -74,6 +74,7 @@ deliberately been run. Replace one with the real value when its feature lands:
 
 ```bash
 dotnet user-secrets set "Whetstone:Ai:ApiKey" "<real key>" --project src/Whetstone.Worker
+dotnet user-secrets set "Whetstone:Corpus:RepoAccessToken" "<real token>" --project src/Whetstone.Worker
 ```
 
 Lens *enablement* is deliberately not configuration: a Lens is enabled per tenant by a

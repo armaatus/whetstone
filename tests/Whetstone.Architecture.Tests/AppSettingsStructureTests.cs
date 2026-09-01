@@ -129,10 +129,20 @@ public class AppSettingsStructureTests
                 {
                     var childPath = path.Length == 0 ? property.Name : path + ":" + property.Name;
 
-                    if (SecretNameFragments.Any(fragment =>
-                            property.Name.Contains(fragment, StringComparison.OrdinalIgnoreCase))
-                        && property.Value.ValueKind == JsonValueKind.String
-                        && property.Value.GetString() is not "")
+                    // A value is anything but the empty string: numbers and booleans carry one
+                    // too. Objects and arrays are not flagged here because the recursion below
+                    // judges each of their leaves on its own name and value; null carries
+                    // nothing (and the named-key test above already demands "" over null).
+                    bool carriesValue = property.Value.ValueKind switch
+                    {
+                        JsonValueKind.String => property.Value.GetString() is not "",
+                        JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False => true,
+                        _ => false,
+                    };
+
+                    if (carriesValue
+                        && SecretNameFragments.Any(fragment =>
+                            property.Name.Contains(fragment, StringComparison.OrdinalIgnoreCase)))
                     {
                         violations.Add(
                             $"{host}/appsettings.json: {childPath} looks secret-bearing and carries a value — secrets never live in the repo tree (spec 13.5)");
