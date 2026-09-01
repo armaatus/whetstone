@@ -214,7 +214,8 @@ tests/
   Whetstone.Domain.Tests           xUnit + FsCheck
   Whetstone.Application.Tests      xUnit + NSubstitute
   Whetstone.Integration.Tests      Testcontainers (real Postgres)
-  Whetstone.Web.Tests              bUnit
+  Whetstone.Web.Tests              bUnit + host startup validation
+  Whetstone.Worker.Tests           host startup validation (ticket 0.7)
   Whetstone.Ai.Evals               golden-set harness
   Whetstone.Architecture.Tests     NetArchTest
 ```
@@ -691,6 +692,7 @@ whetstone/
 │   ├── Whetstone.Application.Tests/
 │   ├── Whetstone.Integration.Tests/
 │   ├── Whetstone.Web.Tests/
+│   ├── Whetstone.Worker.Tests/
 │   ├── Whetstone.Ai.Evals/
 │   └── Whetstone.Architecture.Tests/
 ├── deploy/

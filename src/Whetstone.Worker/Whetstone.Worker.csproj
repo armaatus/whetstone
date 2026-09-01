@@ -6,6 +6,15 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <!-- ValidateDataAnnotations for the options pattern (ticket 0.7). The Web host gets this
+         from the ASP.NET Core shared framework; a worker has to ask for it. -->
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- OptionsWiring is internal (CA1515: executables expose nothing), and the startup
+         validation tests boot a host through it. -->
+    <InternalsVisibleTo Include="Whetstone.Worker.Tests" />
   </ItemGroup>
 
   <ItemGroup>

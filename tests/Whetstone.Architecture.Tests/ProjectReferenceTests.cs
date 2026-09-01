@@ -56,7 +56,7 @@ public class ProjectReferenceTests
 
         foreach ((string project, string[] allowed) in Allowed)
         {
-            var csproj = Path.Combine(RepoRoot(), "src", project, project + ".csproj");
+            var csproj = Path.Combine(SolutionArchitecture.RepoRoot(), "src", project, project + ".csproj");
             Assert.True(File.Exists(csproj), $"expected {csproj} to exist");
 
             violations.AddRange(
@@ -78,7 +78,7 @@ public class ProjectReferenceTests
     public void Every_project_is_either_governed_or_deliberately_exempt()
     {
         var ungoverned = Directory
-            .EnumerateDirectories(Path.Combine(RepoRoot(), "src"))
+            .EnumerateDirectories(Path.Combine(SolutionArchitecture.RepoRoot(), "src"))
             // A directory only counts as a project if it holds one, so a stray folder under src/
             // is not a build failure — a new .csproj is.
             .Where(directory => Directory.EnumerateFiles(directory, "*.csproj").Any())
@@ -103,17 +103,4 @@ public class ProjectReferenceTests
             // the whole path and every comparison below would silently match nothing.
             .Select(include => Path.GetFileNameWithoutExtension(include.Replace('\\', '/')))
             .Where(name => !string.IsNullOrEmpty(name));
-
-    private static string RepoRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Whetstone.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName
-            ?? throw new InvalidOperationException($"Whetstone.slnx not found above {AppContext.BaseDirectory}");
-    }
 }

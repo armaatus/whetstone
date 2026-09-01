@@ -2,7 +2,16 @@
 
   <PropertyGroup>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- Dev secrets live here, outside the repo tree, never in an appsettings.Development.json
+         (spec 13.5). The id is a GUID, not a name, so it can never collide with a fork's. -->
+    <UserSecretsId>dotnet-Whetstone.Web-0a4c11de-9c1e-4f0b-8f77-3b1f2a6d5e42</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- OptionsWiring is internal (CA1515: executables expose nothing), and the startup
+         validation tests boot a host through it. -->
+    <InternalsVisibleTo Include="Whetstone.Web.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Whetstone.Web.Client\Whetstone.Web.Client.csproj" />

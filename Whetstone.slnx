@@ -16,5 +16,6 @@
     <Project Path="tests/Whetstone.Domain.Tests/Whetstone.Domain.Tests.csproj" />
     <Project Path="tests/Whetstone.Integration.Tests/Whetstone.Integration.Tests.csproj" />
     <Project Path="tests/Whetstone.Web.Tests/Whetstone.Web.Tests.csproj" />
+    <Project Path="tests/Whetstone.Worker.Tests/Whetstone.Worker.Tests.csproj" />
   </Folder>
 </Solution>
