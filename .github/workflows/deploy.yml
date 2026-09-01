@@ -1,8 +1,15 @@
 name: Deploy
 
-# Deploys are tag events, never branch events (spec 13.8): a deploy is tied to an immutable
-# reference rather than to "whatever main was at the time". The tag shape is the trigger, so
-# pushing `v0.1.0` is the whole deploy ceremony.
+# Deploys are tag events, never branch events (spec 13.8): a deploy is tied to a fixed reference
+# rather than to "whatever main was at the time". The tag shape is the trigger, so pushing
+# `v0.1.0` is the whole deploy ceremony.
+#
+# A tag is only fixed because something keeps it fixed. Two separate mechanisms, and neither
+# substitutes for the other: the `Release tags` repository ruleset on `refs/tags/v*.*.*` blocks
+# update, deletion and non-fast-forward, which is what makes the reference immutable; the check
+# below refuses a lightweight tag, which is what makes it attributable. `git tag -a` alone buys
+# the second and never the first, and no workflow can buy the first — by the time a workflow
+# runs, the ref is whatever was pushed.
 #
 # At v0.0.0 this workflow deploys NOTHING, and that is the point. There is no application code,
 # no image and no host yet, so this is the only moment the trigger can be verified in isolation:
@@ -47,10 +54,14 @@ jobs:
           # from a lightweight one, which is exactly the check below.
           fetch-depth: 0
 
-      # The one substantive thing this workflow does at v0.0.0. Spec 13.8 wants deploys tied to an
-      # immutable reference; a lightweight tag is a branch-like pointer with no author, no date and
-      # no message, and it is trivially moved. Asserting the shape here means the guarantee is
-      # enforced by the pipeline rather than by remembering to type `-a`.
+      # The one substantive thing this workflow does at v0.0.0. A lightweight tag is a bare pointer
+      # with no author, no date and no message, so a deploy cut from one cannot say who released
+      # what or when — and that record is half of why spec 13.8 deploys from tags at all.
+      # Asserting the shape here means it does not depend on remembering to type `-a`.
+      #
+      # This is a shape check, not an immutability check, and it cannot be made into one: by the
+      # time the workflow runs, the ref is whatever was pushed. Blocking a moved or deleted release
+      # tag happens before the push, in the ruleset (see the header).
       - name: Tag is annotated
         env:
           TAG: ${{ github.ref_name }}
