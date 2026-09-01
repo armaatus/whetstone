@@ -79,10 +79,10 @@ jobs:
             # to base.sha over-scans, which is the safe direction to be wrong in.
             base="$(git merge-base "$BASE_SHA" "$HEAD_SHA" || echo "$BASE_SHA")"
             echo "Scanning pull request range ${base}..${HEAD_SHA}"
-            gitleaks git --redact --no-banner --exit-code 1 --log-opts "--no-merges ${base}..${HEAD_SHA}" .
+            gitleaks git --redact --no-banner --exit-code 1 -v --log-opts "--no-merges ${base}..${HEAD_SHA}" .
           else
             echo "Scanning the full history of ${GITHUB_REF_NAME}"
-            gitleaks git --redact --no-banner --exit-code 1 .
+            gitleaks git --redact --no-banner --exit-code 1 -v .
           fi
 
       # cache: true hashes the packages.lock.json files and restores ~/.nuget/packages from it.
