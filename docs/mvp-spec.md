@@ -874,7 +874,8 @@ Once a secret is in git history, rotating it is the only real fix — cleaning h
 4. `dotnet build -c Release` (warnings are errors)
 5. `dotnet test` (Testcontainers needs Docker on the runner)
 6. `dotnet list package --vulnerable --include-transitive` → fail on any hit
-7. `gitleaks git` (renamed from `gitleaks detect` in 8.19; `detect` no longer exists)
+7. `gitleaks git` (superseded `gitleaks detect` in 8.19; `detect` still runs but is deprecated
+   and hidden from `--help`)
 8. Eval harness (from Epic 4 onward)
 
 *Why on day one rather than "once there's something to test":* the cost of each gate is proportional

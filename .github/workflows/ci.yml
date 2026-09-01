@@ -62,10 +62,12 @@ jobs:
       # PR's range only: the author is shown what THEY are adding, not a wall of pre-existing
       # findings they cannot act on, which is the failure mode that gets a scanner switched off.
       #
-      # The subcommand is `gitleaks git`. `detect` was renamed in 8.19 and does not exist in
-      # 8.30.1 at all — ticket 0.8 and anything written before it still say `detect`; spec 13.6
-      # has been corrected. --exit-code 1 is already the default and is written out anyway,
-      # because the failure behaviour of a scanner should not be something you have to look up.
+      # The subcommand is `gitleaks git`. `detect` was superseded in 8.19: it still runs in 8.30.1
+      # for backwards compatibility, but it is deprecated and hidden from `gitleaks --help`, so it
+      # is not a form you can look up from the tool any more — ticket 0.8 and anything written
+      # before it still say `detect`; spec 13.6 has been corrected. --exit-code 1 is already the
+      # default and is written out anyway, because the failure behaviour of a scanner should not be
+      # something you have to look up.
       - name: Secret scan
         env:
           # Both empty on push, set on pull_request.
@@ -79,7 +81,13 @@ jobs:
             # to base.sha over-scans, which is the safe direction to be wrong in.
             base="$(git merge-base "$BASE_SHA" "$HEAD_SHA" || echo "$BASE_SHA")"
             echo "Scanning pull request range ${base}..${HEAD_SHA}"
-            gitleaks git --redact --no-banner --exit-code 1 -v --log-opts "--no-merges ${base}..${HEAD_SHA}" .
+            # -m, and NOT --no-merges. A merge commit produces no diff by default and --no-merges
+            # dropped it from the walk entirely, which is a hole: resolving a conflict is a hand
+            # edit that exists in the merge commit and nowhere else, so merging `main` into a
+            # branch and pasting a credential in while fixing the conflict was a secret no other
+            # commit in the range contained. -m diffs the merge against every parent instead. It
+            # costs a merge being reported once per parent — duplicate lines, never a missed one.
+            gitleaks git --redact --no-banner --exit-code 1 -v --log-opts "-m ${base}..${HEAD_SHA}" .
           else
             echo "Scanning the full history of ${GITHUB_REF_NAME}"
             gitleaks git --redact --no-banner --exit-code 1 -v .

@@ -15,7 +15,7 @@
 # positive (cost: one `gitleaks:allow` comment) to a miss (cost: a rotation, if you notice at all).
 
 [extend]
-useDefault = true # ~180 upstream rules. The three below cover what they miss for THIS system.
+useDefault = true # ~180 upstream rules. The four below cover what they miss for THIS system.
 
 # ---------------------------------------------------------------------------------------------
 # 1. Corpus repository access tokens.
@@ -59,7 +59,7 @@ keywords = [
 # same reason as rule 1 — those pin exact lengths and an entropy floor.
 #
 # When OQ-2 closes: narrow this to the chosen format(s), and say so in the ADR that closes it.
-# Rule 3 stays either way — it is what covers a provider whose format nobody here anticipated.
+# Rules 3 and 4 stay either way — they cover a provider whose format nobody here anticipated.
 # ---------------------------------------------------------------------------------------------
 [[rules]]
 id = "whetstone-ai-provider-api-key"
@@ -84,11 +84,30 @@ keywords = [
 #
 # `appsettings.json` documents every one of these keys with an EMPTY value on purpose; the `{8,}`
 # minimum length is what lets that stay legal without an allowlist entry.
+#
+# Two value forms here, and a third in rule 4:
+#
+#   1. QUOTED, after `:` `=` `=>` or plain whitespace — `"ApiKey": "..."`, `["Whetstone:Ai:ApiKey"]
+#      = "..."`, `user-secrets set "Whetstone:Ai:ApiKey" "..."`. The quote is what makes a loose
+#      separator safe: prose like "the ApiKey configuration section" has no opening quote.
+#   2. UNQUOTED, but only immediately after `=` with no space either side — the environment
+#      variable form, `Whetstone__Ai__ApiKey=...`, which is how production supplies these. Nothing
+#      may separate the key, the `=` and the value, because that is exactly what distinguishes an
+#      env assignment from C# (`options.ConnectionString = builder.Configuration.Get...`), and
+#      admitting spaces here would report every such line.
+#
+# The `key: value` form — a YAML environment map — is rule 4, not a third branch, because it has
+# to anchor to the start and end of the line and gitleaks reads the secret from the first capture
+# group: one regex cannot anchor one branch without anchoring the others.
+#
+# No `\b` before the alternation: `\b` requires a non-word character before the keyword, and the
+# double-underscore nesting means there is a `_` there — `Whetstone__Ai__ApiKey` was invisible to
+# this rule for exactly that reason (PR #139 review).
 # ---------------------------------------------------------------------------------------------
 [[rules]]
 id = "whetstone-secret-config-value"
 description = "Non-empty value in a secret-bearing Whetstone configuration key (spec §13.5)"
-regex = '''(?i)\b(?:apikey|repoaccesstoken|registryapikey|connectionstring)["'\]]{0,2}\s*(?:[:=]{1,2}>?|\s)\s*["']([^"'\s]{8,255})["']'''
+regex = '''(?i)(?:apikey|repoaccesstoken|registryapikey|connectionstring)(?:["'\]]{0,2}\s*(?:[:=]{1,2}>?|\s)\s*["']|=)([^"'\s]{8,255})'''
 keywords = [
     "apikey",
     "repoaccesstoken",
@@ -96,12 +115,65 @@ keywords = [
     "connectionstring",
 ]
 
-# Per-rule and per-value, not global, and not per-path: `tests/` is the single most likely place
-# for a real token to be pasted (the ticket says so), so allowlisting that directory would remove
-# the rule exactly where it earns its keep. These four patterns instead permit values that
-# ANNOUNCE THEMSELVES AS FAKE — which is a property of the value, so it holds wherever it appears,
-# and a real credential dropped into the same file is still a finding.
-[[rules.allowlists]]
+# ---------------------------------------------------------------------------------------------
+# 4. The same secret-bearing slots, in line-oriented configuration syntax.
+#
+# Rule 3's unquoted branch demands the value sit immediately after `=`, which is exactly what keeps
+# it off C# assignments — and which leaves the OTHER unquoted form uncovered. `key: value` is how a
+# Compose file, a Helm values file and a Kubernetes env map all spell an environment variable:
+#
+#     environment:
+#       Whetstone__Ai__ApiKey: pasted-provider-key
+#
+# and that is the snippet that gets copied into a deployment doc with a live value still in it.
+#
+# `key: value` is ALSO C# named-argument syntax and ordinary Markdown prose, so three structural
+# discriminators do the separating. All three are load-bearing; drop any one and this rule starts
+# reporting source files:
+#
+#   * The key starts the LINE — indentation and a `- ` list dash allowed, nothing else. Prose that
+#     mentions the key mid-sentence ("the ApiKey: ...") is not a key.
+#   * The value runs to the END of the line. `apiKey: configuration["Whetstone:Ai:ApiKey"],` is not
+#     a value: there are quotes and a comma after it, and a YAML scalar has neither.
+#   * The value may not END in `, ) ] }` or BEGIN with `# $ * & ! < >`. That removes the remaining
+#     named-argument shapes (`apiKey: providerApiKey,`) and every interpolation form
+#     (`${WHETSTONE_AI_KEY}`, `$CORPUS_TOKEN`) — an indirection is not a credential.
+#
+# Deliberately NOT path-scoped to `*.yaml`. The riskiest copy of a Compose snippet is the one
+# pasted into a Markdown file to show someone how to deploy, which is the one place a path scope
+# would have switched this off.
+#
+# Known gap, stated rather than papered over: a block scalar (`ApiKey: |`, value on the next line)
+# and the Kubernetes `- name:` / `value:` pair both put the key and the secret on DIFFERENT lines.
+# Catching those needs a YAML parser, not a regex. Rules 1 and 2 still see such a value if it has a
+# recognisable format; if it does not, it is missed.
+# ---------------------------------------------------------------------------------------------
+[[rules]]
+id = "whetstone-secret-config-value-line"
+description = "Non-empty value on a secret-bearing Whetstone configuration key, line-oriented syntax (spec §13.5)"
+regex = '''(?im)^[ \t]*(?:-[ \t]+)?["']?[A-Za-z0-9_.:$-]*(?:apikey|repoaccesstoken|registryapikey|connectionstring)["']?[ \t]*:[ \t]+([^"'\s#$*&!<>][^"'\s]{6,253}[^"'\s,)\]}])[ \t]*(?:#[^\n]*)?$'''
+keywords = [
+    "apikey",
+    "repoaccesstoken",
+    "registryapikey",
+    "connectionstring",
+]
+
+# Per-value, and named to rules 3 and 4 by id — never per-path, and never blanket-global. The two
+# positional rules share one definition of "obviously fake" because two copies would drift apart,
+# but `targetRules` keeps it off the two FORMAT rules above: a string that opens with `test-` and
+# is nonetheless a real `ghp_` token is still a finding.
+#
+# Not per-path because `tests/` is the single most likely place for a real token to be pasted (the
+# ticket says so), so allowlisting that directory would remove the rules exactly where they earn
+# their keep. These four patterns instead permit values that ANNOUNCE THEMSELVES AS FAKE — which is
+# a property of the value, so it holds wherever it appears, and a real credential dropped into the
+# same file is still a finding.
+[[allowlists]]
+targetRules = [
+    "whetstone-secret-config-value",
+    "whetstone-secret-config-value-line",
+]
 description = "Values that identify themselves as fake"
 regexes = [
     # `scripts/dev-secrets.sh` seeds these into the per-user secret store. Self-describing so that

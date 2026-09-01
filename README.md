@@ -96,12 +96,16 @@ from the outside to one that scans everything — which is why the hook **fails 
 `gitleaks` is missing rather than passing silently. A scanner that no-ops when it cannot run is
 worse than no scanner, because it is believed.
 
-`.gitleaks.toml` extends the ~180 upstream rules with three of this repo's own: corpus
-repository access tokens (ADR-0006 — the credential that reads a customer's private source),
-AI provider API keys (a union of candidate formats while OQ-2 is open), and a catch-all for any
-non-empty value sitting in one of the four secret-bearing configuration keys. Allowlisting there
-is per-rule and by *value*, never a blanket path: `tests/` is the most likely place for a real
-token to be pasted, so excluding it would remove the rule where it earns its keep.
+`.gitleaks.toml` extends the ~180 upstream rules with four of this repo's own. Two match a
+secret by its *format* — corpus repository access tokens (ADR-0006 — the credential that reads a
+customer's private source) and AI provider API keys (a union of candidate formats while OQ-2 is
+open). Two match it by its *position*: any non-empty value sitting in one of the four
+secret-bearing configuration keys, in every syntax those keys are written in — quoted
+(`"ApiKey": "…"`), environment variable (`Whetstone__Ai__ApiKey=…`), and YAML environment map
+(`Whetstone__Ai__ApiKey: …`, including inside a fenced block in a Markdown file). Allowlisting is
+by *value* and named to those two positional rules by id, never a blanket path: `tests/` is the
+most likely place for a real token to be pasted, so excluding it would remove the rules where
+they earn their keep.
 
 Keep that file as the single source of truth for what a secret looks like here. The runtime
 scan of candidate text required by ADR-0007 §4 (Epic 2.5) points at it rather than growing its
