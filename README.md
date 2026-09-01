@@ -139,11 +139,41 @@ docs/    adr/ evals/ perf/ privacy/ spikes/ agents/ product-thesis.md ai-log.md
 `Directory.Build.props` and `Directory.Packages.props` hold settings and package versions
 for every project. Analyzer suppressions live in `.editorconfig`, each with a reason.
 
-## Not done yet (Epic 0)
+## Releases
 
-- Remaining open ticket: 0.11 (tag `v0.0.0`) — see the project board.
+Deploys are tag events, never branch events (spec §13.8) — `.github/workflows/deploy.yml` fires
+on `v*.*.*` and on nothing else, so a deploy is tied to a fixed reference rather than to whatever
+`main` was at the time.
 
-Tracked as GitHub issues, grouped by milestone, with build order on the
-[project board](https://github.com/users/armaatus/projects/1) — `Status`, `Blockers`, `Unlocks` and
-`Critical path` are derived from each issue's **Blocked by:** line by `scripts/sync-board.py`.
+That the reference is fixed is not a property of tags; it is enforced, by two separate things.
+The **`Release tags` repository ruleset** on `refs/tags/v*.*.*` blocks update, deletion and
+non-fast-forward, so a released tag cannot be re-pointed at a different commit afterwards — this
+is the part that makes the reference immutable, and `git tag -a` does nothing for it. The
+**workflow** rejects a lightweight tag, so every release carries a tagger, a date and a message —
+this is the part that makes it attributable. Neither substitutes for the other.
+
+The ruleset has **no bypass actors**, the repository owner included. Creating a tag is unaffected;
+moving or deleting one that has already been released is not something anyone can do by accident,
+and undoing a release therefore means editing the ruleset deliberately in repository settings
+rather than typing `git push --delete`. That is the intended cost: a released tag is a claim about
+what was deployed, and a claim you can quietly retract is not one.
+
+```bash
+git tag -a v0.1.0 -m "..."   # annotated, from main
+git push origin v0.1.0       # this is the deploy
+```
+
+`v0.0.0` is Epic 0 closed: every gate green on a foundation with **nothing built on it yet** —
+build configuration, the project graph with `AssemblyMarker` types, host and options wiring, the
+database roles, the architecture tests, the ADRs. No domain logic, no use case, no adapter, no
+`IExerciseSource`. At that tag the deploy workflow deploys nothing and proves it fires, which is
+the only moment the trigger itself can be verified in isolation. The real steps (images, migrator,
+Compose over SSH, `/health` smoke check — spec §12) arrive with the epic that makes each one real.
+
+## Status
+
+Epic 0 is complete as of `v0.0.0`. Everything after it is tracked as GitHub issues, grouped by
+milestone, with build order on the [project board](https://github.com/users/armaatus/projects/1)
+— `Status`, `Blockers`, `Unlocks` and `Critical path` are derived from each issue's
+**Blocked by:** line by `scripts/sync-board.py`.
 Every ticket is implemented by hand; see the working agreement in [`CLAUDE.md`](CLAUDE.md).
