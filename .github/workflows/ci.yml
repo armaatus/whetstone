@@ -62,10 +62,10 @@ jobs:
       # PR's range only: the author is shown what THEY are adding, not a wall of pre-existing
       # findings they cannot act on, which is the failure mode that gets a scanner switched off.
       #
-      # `gitleaks detect` (spec 13.6, ticket 0.8) is the pre-8.19 spelling. The subcommand is
-      # `gitleaks git` as of 8.30.1 and `detect` no longer exists at all. --exit-code 1 is already
-      # the default; it is written out because a scanner that no-ops silently is worse than no
-      # scanner, so the failure behaviour should not be something you have to look up.
+      # The subcommand is `gitleaks git`. `detect` was renamed in 8.19 and does not exist in
+      # 8.30.1 at all — ticket 0.8 and anything written before it still say `detect`; spec 13.6
+      # has been corrected. --exit-code 1 is already the default and is written out anyway,
+      # because the failure behaviour of a scanner should not be something you have to look up.
       - name: Secret scan
         env:
           # Both empty on push, set on pull_request.
