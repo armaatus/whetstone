@@ -1,0 +1,118 @@
+# Whetstone secret-scanning ruleset (ticket 0.8, spec 13.5).
+#
+# This file is the single source of truth for "what a secret looks like in this system", and it has
+# three consumers on purpose:
+#
+#   1. `hooks/pre-commit`               — staged changes, before anything enters history
+#   2. `.github/workflows/ci.yml` gate 7 — full history on `main`, the PR range on a pull request
+#   3. Epic 2.5 candidate-text scanning  — ADR-0007 §4 requires that candidate text is scanned for
+#      secrets before persistence, so a Lens that quotes a `.env` file into a `BeforeState` cannot
+#      create a durable copy of a credential. That scanner points at THIS file rather than growing
+#      its own patterns; two divergent definitions of "secret" is one definition too many.
+#
+# Once a secret is in git history, rotating it is the only real fix — cleaning history is not,
+# because you do not know who cloned in between. Every rule below therefore prefers a false
+# positive (cost: one `gitleaks:allow` comment) to a miss (cost: a rotation, if you notice at all).
+
+[extend]
+useDefault = true # ~180 upstream rules. The three below cover what they miss for THIS system.
+
+# ---------------------------------------------------------------------------------------------
+# 1. Corpus repository access tokens.
+#
+# ADR-0006 makes this system read a tenant's private source. The token configured in
+# `Whetstone:Corpus:RepoAccessToken` (#7) is the credential that grants that read, which makes it
+# the highest-value string in the repository and exactly the kind of thing that gets pasted into a
+# test file "just to check the call works".
+#
+# Why this is not redundant with the upstream `github-pat` / `github-oauth` / `github-app-token` /
+# `github-refresh-token` / `github-fine-grained-pat` rules: those pin an exact length (`{36}`,
+# `\w{82}`) AND an entropy floor of 3. A token that is one character short because it was
+# hand-retyped, a low-entropy fake somebody generated to test a code path, or a future GitHub
+# format change all slip past every one of them. For a normal repo that is a sensible trade. For
+# the one credential that reads a customer's private code, it is not.
+# ---------------------------------------------------------------------------------------------
+[[rules]]
+id = "whetstone-corpus-github-token"
+description = "GitHub access token — corpus repository credential (ADR-0006, Whetstone:Corpus:RepoAccessToken)"
+regex = '''\b(gh[pousr]_[A-Za-z0-9]{20,255}|github_pat_[A-Za-z0-9_]{20,255})'''
+keywords = [
+    "ghp_",
+    "gho_",
+    "ghu_",
+    "ghs_",
+    "ghr_",
+    "github_pat_",
+]
+
+# ---------------------------------------------------------------------------------------------
+# 2. AI provider API keys.
+#
+# OQ-2 (#72) is OPEN: no provider has been chosen, and grading and generation may not resolve to
+# the same one. Until it closes, this rule is deliberately a UNION of the key formats reachable
+# through `Microsoft.Extensions.AI`'s `IChatClient` (§9.1) rather than the single format the
+# acceptance criterion assumes.
+#
+# Not deleting it in the meantime is the point: "we have not picked a provider yet" is precisely
+# the period when trial keys from three of them are lying around in shell history and scratch
+# files. It is looser than upstream `anthropic-api-key` / `openai-api-key` / `gcp-api-key` for the
+# same reason as rule 1 — those pin exact lengths and an entropy floor.
+#
+# When OQ-2 closes: narrow this to the chosen format(s), and say so in the ADR that closes it.
+# Rule 3 stays either way — it is what covers a provider whose format nobody here anticipated.
+# ---------------------------------------------------------------------------------------------
+[[rules]]
+id = "whetstone-ai-provider-api-key"
+description = "AI provider API key (OQ-2 #72 open — union of candidate IChatClient provider formats)"
+regex = '''\b(sk-ant-[A-Za-z0-9_-]{20,255}|sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{20,255}|sk-[A-Za-z0-9]{20,255}|AIza[A-Za-z0-9_-]{20,255})'''
+keywords = [
+    "sk-ant-",
+    "sk-proj-",
+    "sk-svcacct-",
+    "sk-admin-",
+    "sk-",
+    "aiza",
+]
+
+# ---------------------------------------------------------------------------------------------
+# 3. A value in a secret-bearing configuration slot.
+#
+# Rules 1 and 2 match a secret by its FORMAT. This one matches it by its POSITION: the four
+# secret-bearing keys of §13.5 must never carry a value anywhere in this repository, whatever that
+# value looks like. That is what makes OQ-2 being open survivable — a key from a provider nobody
+# anticipated still lands in `Whetstone:Ai:ApiKey`, and is still caught here.
+#
+# `appsettings.json` documents every one of these keys with an EMPTY value on purpose; the `{8,}`
+# minimum length is what lets that stay legal without an allowlist entry.
+# ---------------------------------------------------------------------------------------------
+[[rules]]
+id = "whetstone-secret-config-value"
+description = "Non-empty value in a secret-bearing Whetstone configuration key (spec §13.5)"
+regex = '''(?i)\b(?:apikey|repoaccesstoken|registryapikey|connectionstring)["'\]]{0,2}\s*(?:[:=]{1,2}>?|\s)\s*["']([^"'\s]{8,255})["']'''
+keywords = [
+    "apikey",
+    "repoaccesstoken",
+    "registryapikey",
+    "connectionstring",
+]
+
+# Per-rule and per-value, not global, and not per-path: `tests/` is the single most likely place
+# for a real token to be pasted (the ticket says so), so allowlisting that directory would remove
+# the rule exactly where it earns its keep. These four patterns instead permit values that
+# ANNOUNCE THEMSELVES AS FAKE — which is a property of the value, so it holds wherever it appears,
+# and a real credential dropped into the same file is still a finding.
+[[rules.allowlists]]
+description = "Values that identify themselves as fake"
+regexes = [
+    # `scripts/dev-secrets.sh` seeds these into the per-user secret store. Self-describing so that
+    # if one ever reaches a real API or a log, it names itself.
+    '''(?i)PLACEHOLDER-whetstone-''',
+    # Test doubles: `["Whetstone:Ai:ApiKey"] = "test-ai-key"` and the `Password=test-db-password`
+    # inside the local connection strings in tests/*/StartupValidationTests.cs.
+    '''(?i)(?:^|[=;])test-[a-z0-9-]{3,}''',
+    # Documentation placeholders in angle brackets: `"<real key>"`, `"<your-token>"`.
+    '''^<[^>]{1,60}>$''',
+    # Local-only Postgres connection strings with no password at all — the Aspire AppHost and
+    # Testcontainers both hand these out at runtime, and one occasionally lands in a doc example.
+    '''(?i)^Host=(?:localhost|127\.0\.0\.1)[^"']*$''',
+]

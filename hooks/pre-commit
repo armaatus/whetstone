@@ -4,4 +4,9 @@ if ! command -v gitleaks >/dev/null 2>&1; then
     echo "pre-commit: gitleaks not installed — run 'brew install gitleaks'" >&2
     exit 1
 fi
-exec gitleaks git --staged --redact --no-banner
+# -v because without it gitleaks prints "leaks found: 2" and nothing else — not the file, not
+# the line, not the rule. That is a blocked commit with no way to act on it, which is how a hook
+# ends up being skipped with --no-verify out of frustration rather than intent. --redact still
+# applies, so the finding names the location without reprinting the credential into a terminal
+# scrollback that then gets pasted into an issue.
+exec gitleaks git --staged --redact --no-banner -v

@@ -35,7 +35,7 @@ Start here:
 ```bash
 dotnet tool restore          # aspire CLI + dotnet-ef, pinned in .config/dotnet-tools.json
 dotnet restore
-git config core.hooksPath hooks   # per clone: enables the gitleaks pre-commit hook
+git config core.hooksPath hooks   # per clone, NOT optional: see "Secret scanning" below
 dotnet dev-certs https --trust    # once per machine; prompts for your keychain
 
 # Dev secrets — once per machine; see "Configuration and secrets" below.
@@ -77,6 +77,36 @@ dotnet user-secrets set "Whetstone:Ai:ApiKey" "<real key>" --project src/Whetsto
 dotnet user-secrets set "Whetstone:Corpus:RepoAccessToken" "<real token>" --project src/Whetstone.Worker
 ```
 
+### Secret scanning
+
+Two layers, both running `gitleaks` against the same `.gitleaks.toml` at the repo root
+(spec §13.5). The hook catches a secret before it enters history, which is the only cheap
+moment. The CI gate catches it when someone commits with `--no-verify`, or on a clone where
+the hook path was never configured. **Once a secret is in git history, rotating it is the only
+real fix** — cleaning history is not, because you do not know who cloned in between.
+
+```bash
+git config core.hooksPath hooks   # run this in every clone and every worktree
+git config core.hooksPath         # should print: hooks
+```
+
+That line is per-clone git config, so nothing in the repository can set it for you. A
+`hooks/pre-commit` that nobody has pointed git at scans exactly nothing, and looks identical
+from the outside to one that scans everything — which is why the hook **fails loudly** when
+`gitleaks` is missing rather than passing silently. A scanner that no-ops when it cannot run is
+worse than no scanner, because it is believed.
+
+`.gitleaks.toml` extends the ~180 upstream rules with three of this repo's own: corpus
+repository access tokens (ADR-0006 — the credential that reads a customer's private source),
+AI provider API keys (a union of candidate formats while OQ-2 is open), and a catch-all for any
+non-empty value sitting in one of the four secret-bearing configuration keys. Allowlisting there
+is per-rule and by *value*, never a blanket path: `tests/` is the most likely place for a real
+token to be pasted, so excluding it would remove the rule where it earns its keep.
+
+Keep that file as the single source of truth for what a secret looks like here. The runtime
+scan of candidate text required by ADR-0007 §4 (Epic 2.5) points at it rather than growing its
+own patterns.
+
 Lens *enablement* is deliberately not configuration: a Lens is enabled per tenant by a
 `TenantAdmin` and audited (ADR-0007 §2) — database state. Configuration holds only where the
 registry is and each Lens's pinned `id@version` + content hash.
@@ -107,7 +137,7 @@ for every project. Analyzer suppressions live in `.editorconfig`, each with a re
 
 ## Not done yet (Epic 0)
 
-- Remaining open tickets: 0.8 (gitleaks) and 0.11 (tag `v0.0.0`) — see the project board.
+- Remaining open ticket: 0.11 (tag `v0.0.0`) — see the project board.
 
 Tracked as GitHub issues, grouped by milestone, with build order on the
 [project board](https://github.com/users/armaatus/projects/1) — `Status`, `Blockers`, `Unlocks` and
