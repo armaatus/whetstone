@@ -23,6 +23,12 @@ public class ConfigurationBoundaryTests
     /// top-level Program lives in the global namespace, while every declared type in the
     /// solution lives under Whetstone.*. The per-host OptionsWiring classes pass on merit
     /// rather than exemption — they bind by section path and never hold a configuration object.
+    ///
+    /// Stated plainly, the exemption is exactly as wide as it is: ANY global-namespace type
+    /// escapes, not only Program — the convention this rule encodes is "global namespace =
+    /// composition-root territory". And like every rule in this project it governs only the
+    /// assemblies in <see cref="SolutionArchitecture"/>'s graph, so ServiceDefaults and AppHost
+    /// (host wiring by definition — see ExemptProjects) may hold configuration objects freely.
     /// </summary>
     [Fact]
     public void IConfiguration_reaches_nothing_outside_the_composition_roots() =>

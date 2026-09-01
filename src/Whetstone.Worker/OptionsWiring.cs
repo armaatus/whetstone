@@ -8,10 +8,8 @@ namespace Whetstone.Worker;
 /// only process allowed to hold the corpus token (ADR-0011 §4), and generation resolves Lenses
 /// by pinned hash (ADR-0007 §1).
 ///
-/// <c>ValidateOnStart</c> on every registration, not just <c>ValidateDataAnnotations</c>: the
-/// latter alone validates lazily on first resolution, which for a background job can be hours
-/// after boot on a healthy-looking host. Both calls, always (spec §13.5).
-///
+/// Each registration goes through <c>AddValidatedOptions</c> (ServiceDefaults), which is
+/// bind-by-path + <c>ValidateDataAnnotations</c> + <c>ValidateOnStart</c>, always (spec §13.5).
 /// Binding is by section <em>path</em>, so nothing here — and nothing anywhere outside the
 /// composition roots, as ConfigurationBoundaryTests asserts — takes an IConfiguration.
 /// </summary>
@@ -19,25 +17,14 @@ internal static class OptionsWiring
 {
     public static IHostApplicationBuilder AddWhetstoneOptions(this IHostApplicationBuilder builder)
     {
-        builder.Services.AddOptions<AiOptions>()
-            .BindConfiguration(AiOptions.SectionName)
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        // Spec 13.5's layering holds at runtime too: no appsettings.{Environment}.json, even
+        // one placed beside the binary after deployment.
+        builder.EnforceConfigurationLayering();
 
-        builder.Services.AddOptions<CorpusOptions>()
-            .BindConfiguration(CorpusOptions.SectionName)
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
-
-        builder.Services.AddOptions<LensOptions>()
-            .BindConfiguration(LensOptions.SectionName)
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
-
-        builder.Services.AddOptions<DatabaseOptions>()
-            .BindConfiguration(DatabaseOptions.SectionName)
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        builder.AddValidatedOptions<AiOptions>(AiOptions.SectionName);
+        builder.AddValidatedOptions<CorpusOptions>(CorpusOptions.SectionName);
+        builder.AddValidatedOptions<LensOptions>(LensOptions.SectionName);
+        builder.AddValidatedOptions<DatabaseOptions>(DatabaseOptions.SectionName);
 
         return builder;
     }

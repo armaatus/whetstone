@@ -150,6 +150,29 @@ public class StartupValidationTests
         Assert.Contains("Whetstone:Lens:Pins:0:ContentHash", exception.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The Lens messages are the only ones built by string interpolation (the pin index goes
+    /// into the key path), so they are the likeliest place for a value to slip into a message.
+    /// Configure real-looking values around a failing pin and assert none of them appear.
+    /// </summary>
+    [Fact]
+    public void Lens_validation_messages_never_echo_configured_values()
+    {
+        var settings = CompleteSettings();
+        settings["Whetstone:Lens:Registry"] = "https://registry.example.test";
+        settings["Whetstone:Lens:RegistryApiKey"] = "test-registry-key";
+        settings["Whetstone:Lens:Pins:0:Id"] = "csharp-idioms";
+        settings["Whetstone:Lens:Pins:0:Version"] = "9.9.9";
+        using var host = BuildHost(settings);
+
+        var exception = Assert.Throws<OptionsValidationException>(host.Start);
+
+        Assert.DoesNotContain("test-registry-key", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("registry.example.test", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("csharp-idioms", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("9.9.9", exception.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_lens_pin_without_a_registry_fails_startup()
     {
