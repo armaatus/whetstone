@@ -39,9 +39,9 @@ git config core.hooksPath hooks   # per clone: enables the gitleaks pre-commit h
 dotnet dev-certs https --trust    # once per machine; prompts for your keychain
 
 # Dev secrets — once per machine; see "Configuration and secrets" below.
-# The worker validates these at boot and refuses to start without them.
-dotnet user-secrets set "Whetstone:Ai:ApiKey" "<key>" --project src/Whetstone.Worker
-dotnet user-secrets set "Whetstone:Corpus:RepoAccessToken" "<token>" --project src/Whetstone.Worker
+# Seeds obvious placeholders into user secrets (the worker refuses to boot without
+# values). Replace with real ones when the consuming feature lands.
+scripts/dev-secrets.sh
 
 dotnet aspire run
 ```
@@ -65,11 +65,15 @@ visibly — not on the first background job hours later. Each host binds only wh
 the Worker takes `Whetstone:Ai`, `Whetstone:Corpus`, `Whetstone:Lens` and `Whetstone:Database`;
 the Web host takes `Whetstone:Database` alone, so the AI key and the corpus token never enter
 its environment (ADR-0011 §4). In development the AppHost injects the database connection
-string (as `whetstone_app`); the two real dev secrets are set once:
+string (as `whetstone_app`); the two dev secrets are seeded once by `scripts/dev-secrets.sh`.
+
+Until the consuming features exist (the AI key is consumed from Epic 4, the corpus token from
+ingestion), the seeded values are self-describing placeholders — in the user-secrets store,
+never committed, so the boot-fails-loudly guarantee still holds anywhere the script hasn't
+deliberately been run. Replace one with the real value when its feature lands:
 
 ```bash
-dotnet user-secrets set "Whetstone:Ai:ApiKey" "<key>" --project src/Whetstone.Worker
-dotnet user-secrets set "Whetstone:Corpus:RepoAccessToken" "<token>" --project src/Whetstone.Worker
+dotnet user-secrets set "Whetstone:Ai:ApiKey" "<real key>" --project src/Whetstone.Worker
 ```
 
 Lens *enablement* is deliberately not configuration: a Lens is enabled per tenant by a
