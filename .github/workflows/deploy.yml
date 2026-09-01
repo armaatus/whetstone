@@ -1,0 +1,79 @@
+name: Deploy
+
+# Deploys are tag events, never branch events (spec 13.8): a deploy is tied to an immutable
+# reference rather than to "whatever main was at the time". The tag shape is the trigger, so
+# pushing `v0.1.0` is the whole deploy ceremony.
+#
+# At v0.0.0 this workflow deploys NOTHING, and that is the point. There is no application code,
+# no image and no host yet, so this is the only moment the trigger can be verified in isolation:
+# once a real deploy hangs off it, a trigger that never fires and a deploy that is broken look
+# identical from the run history. Wiring it now costs one run and removes that ambiguity forever.
+#
+# What gets added here, per spec 12, roughly in order — each with the epic that makes it real:
+#   - build and push the web and worker images, tagged with the release tag and the commit SHA
+#   - run the one-shot migrator against the target host
+#   - `compose up` on the single Linux host over SSH (ADR-0005: production is Compose, not Aspire)
+#   - a smoke check against /health before the run is allowed to go green
+#
+# Note what is deliberately NOT here: a dependency on the CI workflow. Tags are cut from `main`,
+# which CI has already gated (ci.yml runs on every push to main and every pull request), so the
+# tagged commit is green before this workflow can be triggered at all. When there is a real deploy,
+# revisit that: "the commit was green once" and "the artefact being deployed is green" are not the
+# same claim, and the gap is where a bad deploy fits.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# Never cancel a deploy in progress. Unlike CI, where a newer push supersedes an older one, a
+# half-applied deploy leaves the host in a state nobody chose. Serialise instead.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The tag OBJECT, not just the commit it points at. A shallow checkout of a tag push
+          # gives you the commit and a ref; `git cat-file -t` then cannot tell an annotated tag
+          # from a lightweight one, which is exactly the check below.
+          fetch-depth: 0
+
+      # The one substantive thing this workflow does at v0.0.0. Spec 13.8 wants deploys tied to an
+      # immutable reference; a lightweight tag is a branch-like pointer with no author, no date and
+      # no message, and it is trivially moved. Asserting the shape here means the guarantee is
+      # enforced by the pipeline rather than by remembering to type `-a`.
+      - name: Tag is annotated
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          kind="$(git cat-file -t "refs/tags/${TAG}")"
+          if [ "$kind" != "tag" ]; then
+            echo "::error title=Lightweight tag::${TAG} is a ${kind}, not an annotated tag object. Re-cut it with 'git tag -a'."
+            exit 1
+          fi
+          echo "${TAG} is annotated:"
+          git for-each-ref --format='  tagger: %(taggername) %(taggerdate:iso8601)%0a  message: %(contents:subject)' "refs/tags/${TAG}"
+
+      - name: Deploy (nothing to deploy yet)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### ${TAG} — trigger fired, nothing deployed"
+            echo
+            echo "- commit: \`${GITHUB_SHA}\`"
+            echo "- no application code exists at this tag; see ticket 0.11."
+            echo "- the deploy steps land with the epic that makes each one real (spec §12)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Trigger fired for ${TAG} at ${GITHUB_SHA}. No deploy steps are wired yet."

@@ -139,11 +139,29 @@ docs/    adr/ evals/ perf/ privacy/ spikes/ agents/ product-thesis.md ai-log.md
 `Directory.Build.props` and `Directory.Packages.props` hold settings and package versions
 for every project. Analyzer suppressions live in `.editorconfig`, each with a reason.
 
-## Not done yet (Epic 0)
+## Releases
 
-- Remaining open ticket: 0.11 (tag `v0.0.0`) — see the project board.
+Deploys are tag events, never branch events (spec §13.8) — `.github/workflows/deploy.yml` fires
+on `v*.*.*` and on nothing else, so a deploy is tied to an immutable reference rather than to
+whatever `main` was at the time. Tags are annotated (`git tag -a`); the workflow rejects a
+lightweight one, because being immutable and attributable is the whole reason a tag is the trigger.
 
-Tracked as GitHub issues, grouped by milestone, with build order on the
-[project board](https://github.com/users/armaatus/projects/1) — `Status`, `Blockers`, `Unlocks` and
-`Critical path` are derived from each issue's **Blocked by:** line by `scripts/sync-board.py`.
+```bash
+git tag -a v0.1.0 -m "..."   # annotated, from main
+git push origin v0.1.0       # this is the deploy
+```
+
+`v0.0.0` is Epic 0 closed: every gate green on a commit with **no application code** — build
+configuration, the project graph with `AssemblyMarker` types, host wiring, the database roles, the
+architecture tests, the ADRs. At that tag the deploy workflow deploys nothing and proves it fires,
+which is the only moment the trigger itself can be verified in isolation. The real steps (images,
+migrator, Compose over SSH, `/health` smoke check — spec §12) arrive with the epic that makes
+each one real.
+
+## Status
+
+Epic 0 is complete as of `v0.0.0`. Everything after it is tracked as GitHub issues, grouped by
+milestone, with build order on the [project board](https://github.com/users/armaatus/projects/1)
+— `Status`, `Blockers`, `Unlocks` and `Critical path` are derived from each issue's
+**Blocked by:** line by `scripts/sync-board.py`.
 Every ticket is implemented by hand; see the working agreement in [`CLAUDE.md`](CLAUDE.md).
