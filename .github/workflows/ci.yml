@@ -52,9 +52,38 @@ jobs:
             | tar -xz gitleaks
           sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
 
-      # CI re-runs what hooks/pre-commit runs locally, so --no-verify buys nothing.
+      # CI re-runs what hooks/pre-commit runs locally, so --no-verify buys nothing. Both layers
+      # read the same .gitleaks.toml at the repo root, so there is one definition of "secret".
+      #
+      # Two scopes, because they answer different questions. On main, the WHOLE history: a secret
+      # that reached the default branch stays reported on every run until it is dealt with, and
+      # dealing with it means rotating the credential — a gate that goes quiet once the commit is
+      # a few deep would hide the one finding you cannot recover from. On a pull request, that
+      # PR's range only: the author is shown what THEY are adding, not a wall of pre-existing
+      # findings they cannot act on, which is the failure mode that gets a scanner switched off.
+      #
+      # `gitleaks detect` (spec 13.6, ticket 0.8) is the pre-8.19 spelling. The subcommand is
+      # `gitleaks git` as of 8.30.1 and `detect` no longer exists at all. --exit-code 1 is already
+      # the default; it is written out because a scanner that no-ops silently is worse than no
+      # scanner, so the failure behaviour should not be something you have to look up.
       - name: Secret scan
-        run: gitleaks git --redact --no-banner .
+        env:
+          # Both empty on push, set on pull_request.
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BASE_SHA" ]; then
+            # base.sha is the base branch TIP, which drifts ahead of the fork point while the PR is
+            # open. Resolving the merge base keeps the range to the PR's own commits; falling back
+            # to base.sha over-scans, which is the safe direction to be wrong in.
+            base="$(git merge-base "$BASE_SHA" "$HEAD_SHA" || echo "$BASE_SHA")"
+            echo "Scanning pull request range ${base}..${HEAD_SHA}"
+            gitleaks git --redact --no-banner --exit-code 1 --log-opts "--no-merges ${base}..${HEAD_SHA}" .
+          else
+            echo "Scanning the full history of ${GITHUB_REF_NAME}"
+            gitleaks git --redact --no-banner --exit-code 1 .
+          fi
 
       # cache: true hashes the packages.lock.json files and restores ~/.nuget/packages from it.
       # cache-dependency-path is required because the action only looks in the repo root by default,
