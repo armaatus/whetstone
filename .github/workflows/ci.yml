@@ -108,7 +108,7 @@ jobs:
       # 750 MB sits inside a 10 GB quota that currently holds one entry. If that stops being true —
       # cache eviction churn from frequent lock-file changes, or the quota filling — dropping these
       # two lines costs 14s and nothing else.
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
           cache: true
